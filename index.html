@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -743,8 +744,8 @@ function initCSS3DRenderer() {
     div.id = 'local-tv-container';
 
     const iframe = document.createElement('iframe');
-    // Using a verified embed video with autoplay, mute, and JS API enabled
-    iframe.src = 'https://www.youtube.com/embed/M7lc1UVf-VE?enablejsapi=1&autoplay=1&mute=1&controls=1&rel=0&playsinline=1';
+    // Indila - Love Story (Official Music Video): https://www.youtube.com/watch?v=DF3XjEhJ40Y
+    iframe.src = 'https://www.youtube.com/embed/DF3XjEhJ40Y?enablejsapi=1&autoplay=1&mute=1&controls=1&rel=0&playsinline=1';
     iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
     iframe.setAttribute('allowfullscreen', 'true');
     iframe.style.width = '100%';
@@ -754,7 +755,6 @@ function initCSS3DRenderer() {
 
     houseTvCssObject = new THREE.CSS3DObject(div);
     houseTvCssObject.scale.set(7.2 / 720, 4.0 / 400, 1.0);
-    // Positioned slightly in front of the wall (Z = -7.78)
     houseTvCssObject.position.set(HOUSE_INTERIOR_POS.x, HOUSE_INTERIOR_POS.y + 2.6, HOUSE_INTERIOR_POS.z - 7.78);
     houseTvCssObject.rotation.y = 0;
 
