@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -29,50 +30,49 @@
   html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--ink); font-family:'JetBrains Mono', monospace; color:#eaf1f5; touch-action:none; user-select:none; }
   #canvas-wrap{ position:fixed; inset:0; z-index: 1; }
   #css3d-wrap {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
 
-#local-tv-container {
-  width: 720px;
-  height: 400px;
-  background: #000;
-  overflow: hidden;
-  position: relative;
-  border: 4px solid #38bdf8;
-  box-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
-  pointer-events: auto !important;
-}
+  #local-tv-container, .outdoor-tv-container {
+    width: 720px;
+    height: 400px;
+    background: #000;
+    overflow: hidden;
+    position: relative;
+    border: 4px solid #38bdf8;
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
+    pointer-events: auto !important;
+  }
 
-#local-tv-container iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-  pointer-events: auto !important;
-}
+  .outdoor-tv-container {
+    border-color: #f59e0b;
+    box-shadow: 0 0 45px rgba(245, 158, 11, 0.65);
+  }
+
+  #local-tv-container iframe, .outdoor-tv-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    pointer-events: auto !important;
+  }
   
- 
   .tv-badge {
-  position: absolute;
-  bottom: 12px;
-  left: 14px;
-  background: rgba(8, 12, 24, 0.85);
-  color: #f59e0b;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px;
-  padding: 4px 12px;
-  border-radius: 4px;
-  border: 1px solid #f59e0b;
-  z-index: 3;
-  letter-spacing: 0.1em;
-  pointer-events: none; /* Allows clicks to pass through to YouTube */
-}
-  @keyframes tvPanZoom {
-    0% { transform: scale(1.0) translate(0px, 0px); filter: brightness(1.0) contrast(1.05); }
-    50% { transform: scale(1.15) translate(-15px, -8px); filter: brightness(1.2) contrast(1.1) hue-rotate(15deg); }
-    100% { transform: scale(1.08) translate(15px, 8px); filter: brightness(0.95) contrast(1.18) hue-rotate(-15deg); }
+    position: absolute;
+    bottom: 12px;
+    left: 14px;
+    background: rgba(8, 12, 24, 0.85);
+    color: #f59e0b;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid #f59e0b;
+    z-index: 3;
+    letter-spacing: 0.1em;
+    pointer-events: none;
   }
 
   #titleScreen{
@@ -337,7 +337,7 @@
 <div id="titleScreen">
   <div class="eyebrow">Interactive Driving & Flying Dispatch Simulation</div>
   <h1 class="gameTitle">NIGHT<span>DRIVE</span></h1>
-  <div class="subline">Experience high speed driving (250 km/h raceway) & flying with mountain train bridges, tunnel skybridge, 3D home TV display, and dynamic city fog barrier.</div>
+  <div class="subline">Experience high speed driving (250 km/h raceway) & flying with mountain train bridges, tunnel skybridge, 3D home TV display, outdoor YouTube TVs, raceway city wall gateway, and dynamic city fog barrier.</div>
 
   <div id="mpTitleBox">
     <div style="font-size:12px;letter-spacing:0.15em;color:var(--cyan);font-weight:bold;">LOCAL WI-FI MULTIPLAYER</div>
@@ -558,9 +558,10 @@ let financeAdCanvas, financeAdCtx, financeAdTexture, financeAdMaterial;
 /* INDILA - LOVE STORY VIDEO CANVAS & TEXTURE SYSTEM */
 let loveStoryCanvas, loveStoryCtx, loveStoryTexture;
 
-/* CSS3D EMBEDDED LOCAL FILE MEDIA DISPLAY FOR LUXURY RESIDENCE TV */
+/* CSS3D EMBEDDED MEDIA DISPLAY FOR LUXURY RESIDENCE & OUTDOOR TVS */
 let houseTvCssObject = null;
-let localTvImageObj = null;
+let beachTvCssObject = null;
+let mountainTvCssObject = null;
 
 let twinAdCanvas, twinAdCtx, twinAdTexture;
 let lastCanvasUpdateTime = 0;
@@ -656,8 +657,11 @@ const OCEAN_BRIDGE = { deckHeight: 11.0, halfWidth: 8.0, pylonHeight: 40.0 };
 const DISTRICT_MAP_LABELS = [
   { name: 'FLYOVER UNDERPASS', x: 0, z: 27.5, color: '#38f2c0' },
   { name: 'HASHIQ BEACH SIGN', x: -30, z: COAST.beachStartZ + 25, color: '#ec4899' },
+  { name: 'BEACH OUTDOOR TV', x: -85, z: COAST.beachStartZ + 25, color: '#38bdf8' },
   { name: 'BEACH HELIPAD', x: GROUND_HELIPAD.x, z: GROUND_HELIPAD.z, color: '#f59e0b' },
+  { name: 'RACEWAY CITY GATEWAY', x: WORLD.half + 40, z: 0, color: '#f59e0b' },
   { name: 'MOUNTAIN LUXURY VILLAGE', x: 0, z: SUBURBAN_ZONE.rowZ, color: '#a855f7' },
+  { name: 'MOUNTAIN OUTDOOR TV', x: 120, z: -1020, color: '#f59e0b' },
   { name: 'NIGHT DRIVE INTERNATIONAL RACEWAY', x: RACE_TRACK.cx, z: RACE_TRACK.cz, color: '#ef4444' },
   { name: 'GRAND MOUNTAIN RAILWAY STATION', x: 0, z: -880, color: '#38bdf8' },
   { name: 'SOUTH TUNNEL ENTRANCE', x: -190, z: -635, color: '#f59e0b' },
@@ -722,7 +726,40 @@ const poleMat = new THREE.MeshStandardMaterial({ color:0x2a2c30, roughness:0.6, 
 
 let globalAtlasTexture, globalAtlasMaterial;
 
-/* INITIALIZE CSS3D RENDERER WITH LOCAL IMAGE ANIMATED VIDEO DISPLAY (REMOVED YOUTUBE IFRAME) */
+/* HELPER FUNCTION TO CREATE CSS3D YOUTUBE TV OBJECTS */
+function createCssTvObject(elementId, iframeSrc, badgeText, x, y, z, rotY, width, height) {
+  const div = document.createElement('div');
+  div.id = elementId;
+  div.className = 'outdoor-tv-container';
+  div.style.width = '720px';
+  div.style.height = '400px';
+
+  const iframe = document.createElement('iframe');
+  iframe.src = iframeSrc;
+  iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+  iframe.setAttribute('allowfullscreen', 'true');
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  iframe.style.border = 'none';
+  div.appendChild(iframe);
+
+  if(badgeText) {
+    const badge = document.createElement('div');
+    badge.className = 'tv-badge';
+    badge.textContent = badgeText;
+    div.appendChild(badge);
+  }
+
+  const cssObj = new THREE.CSS3DObject(div);
+  cssObj.scale.set(width / 720, height / 400, 1.0);
+  cssObj.position.set(x, y, z);
+  cssObj.rotation.y = rotY;
+
+  if (cssScene) cssScene.add(cssObj);
+  return cssObj;
+}
+
+/* INITIALIZE CSS3D RENDERER WITH HOUSE & OUTDOOR YOUTUBE TV DISPLAYS */
 function initCSS3DRenderer() {
   if (typeof THREE === 'undefined' || typeof THREE.CSS3DRenderer === 'undefined') {
     console.warn("CSS3DRenderer not loaded.");
@@ -740,29 +777,253 @@ function initCSS3DRenderer() {
     const wrap = document.getElementById('css3d-wrap');
     if (wrap) wrap.appendChild(cssRenderer.domElement);
 
-    const div = document.createElement('div');
-    div.id = 'local-tv-container';
+    const youtubeUrl = 'https://www.youtube.com/embed/DF3XjEhJ40Y?enablejsapi=1&autoplay=1&mute=1&controls=1&rel=0&playsinline=1';
 
-    const iframe = document.createElement('iframe');
-    // Indila - Love Story (Official Music Video): https://www.youtube.com/watch?v=DF3XjEhJ40Y
-    iframe.src = 'https://www.youtube.com/embed/DF3XjEhJ40Y?enablejsapi=1&autoplay=1&mute=1&controls=1&rel=0&playsinline=1';
-    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
-    iframe.setAttribute('allowfullscreen', 'true');
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
-    div.appendChild(iframe);
+    // 1. House TV CSS3D Object
+    const houseDiv = document.createElement('div');
+    houseDiv.id = 'local-tv-container';
+    const houseIframe = document.createElement('iframe');
+    houseIframe.src = youtubeUrl;
+    houseIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+    houseIframe.setAttribute('allowfullscreen', 'true');
+    houseDiv.appendChild(houseIframe);
 
-    houseTvCssObject = new THREE.CSS3DObject(div);
+    houseTvCssObject = new THREE.CSS3DObject(houseDiv);
     houseTvCssObject.scale.set(7.2 / 720, 4.0 / 400, 1.0);
     houseTvCssObject.position.set(HOUSE_INTERIOR_POS.x, HOUSE_INTERIOR_POS.y + 2.6, HOUSE_INTERIOR_POS.z - 7.78);
     houseTvCssObject.rotation.y = 0;
-
     cssScene.add(houseTvCssObject);
+
+    // 2. Outdoor Beach TV (Hashiq Beach)
+    beachTvCssObject = createCssTvObject(
+      'beach-tv-container',
+      youtubeUrl,
+      'HASHIQ BEACH LIVE STREAM 📺',
+      -85.0, 10.0, COAST.beachStartZ + 25,
+      Math.PI,
+      18.0, 10.0
+    );
+
+    // 3. Outdoor Mountain TV (100m North of Suburban Village)
+    mountainTvCssObject = createCssTvObject(
+      'mountain-tv-container',
+      youtubeUrl,
+      'MOUNTAIN PEAK CINEMA 📺',
+      120.0, 22.0, -1020.0,
+      Math.PI,
+      36.0, 20.25
+    );
+
   } catch(e) {
     console.warn("CSS3D Setup Warning:", e);
   }
 }
+
+/* 3D FRAME BUILDERS FOR OUTDOOR TVS & RACEWAY CITY WALL GATEWAY */
+function buildBeachTVFrame() {
+  const group = new THREE.Group();
+  const bx = -85.0, by = 10.0, bz = COAST.beachStartZ + 25;
+  const frameWidth = 18.8, frameHeight = 10.8;
+
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.85 });
+  const goldRimMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.9, emissive: 0xb45309, emissiveIntensity: 0.4 });
+  const cyanGlowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 3.0 });
+
+  [-8.0, 8.0].forEach(px => {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 10.0, 8), steelMat);
+    pillar.position.set(px, 5.0, 0);
+    group.add(pillar);
+  });
+
+  const frameBacking = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, frameHeight, 0.8), steelMat);
+  frameBacking.position.set(0, by, 0);
+  group.add(frameBacking);
+
+  const outerBorder = new THREE.Mesh(new THREE.BoxGeometry(frameWidth + 0.6, frameHeight + 0.6, 0.4), goldRimMat);
+  outerBorder.position.set(0, by, -0.2);
+  group.add(outerBorder);
+
+  const neonBar = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, 0.3, 0.4), cyanGlowMat);
+  neonBar.position.set(0, by - frameHeight/2 - 0.2, 0.3);
+  group.add(neonBar);
+
+  group.position.set(bx, 0, bz);
+  group.rotation.y = Math.PI;
+  scene.add(group);
+
+  const box = { minX: bx - 10, maxX: bx + 10, minZ: bz - 2, maxZ: bz + 2, minY: 0, maxY: by + 6, type: 'Hashiq Beach TV Tower' };
+  buildingBoxes.push(box); registerCollider(box);
+}
+function buildMountainTVFrame() {
+  const group = new THREE.Group();
+  const mx = 120.0, my = 22.0, mz = -1020.0;
+  const frameWidth = 37.2, frameHeight = 21.4;
+
+  const darkSteel = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.8 });
+  const amberNeon = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 3.5 });
+  const concMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
+
+  const terrainY = getTerrainHeight(mx, mz);
+  const pillarHeight = Math.max(6.0, my - terrainY);
+
+  [-14.0, 14.0].forEach(px => {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.4, pillarHeight, 10), concMat);
+    pillar.position.set(px, terrainY + pillarHeight/2, 0);
+    group.add(pillar);
+  });
+
+  const panelBack = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, frameHeight, 1.0), darkSteel);
+  panelBack.position.set(0, my, 0);
+  group.add(panelBack);
+
+  const topNeon = new THREE.Mesh(new THREE.BoxGeometry(frameWidth + 1.0, 0.5, 0.5), amberNeon);
+  topNeon.position.set(0, my + frameHeight/2 + 0.3, 0.3);
+  group.add(topNeon);
+
+  group.position.set(mx, 0, mz);
+  group.rotation.y = Math.PI;
+  scene.add(group);
+
+  const box = { minX: mx - 19, maxX: mx + 19, minZ: mz - 3, maxZ: mz + 3, minY: terrainY, maxY: my + frameHeight/2 + 2, type: 'Mountain Peak Outdoor TV' };
+  buildingBoxes.push(box); registerCollider(box);
+}
+
+/* PERIMETER WALL WITH GRAND GATEWAY ENTRANCE BETWEEN CITY AND RACEWAY */
+function buildRacewayGatewayWall() {
+  const wallX = WORLD.half + 40; // X = 712m
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, metalness: 0.3 });
+  const darkSteel = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.85 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.9, emissive: 0xb45309, emissiveIntensity: 0.4 });
+  const redNeonMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 3.5 });
+  const greenNeonMat = new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 3.5 });
+  const cyanNeonMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 3.0 });
+
+  const wallHeight = 12.0;
+  const wallThickness = 3.5;
+
+  // 1. North Wall Segment (Z from -450 to -16m)
+  const northLen = 434;
+  const northWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, northLen), stoneMat);
+  northWall.position.set(wallX, wallHeight / 2, -16 - northLen / 2);
+  scene.add(northWall);
+
+  const boxNorth = { minX: wallX - wallThickness/2, maxX: wallX + wallThickness/2, minZ: -450, maxZ: -16, minY: 0, maxY: wallHeight, type: 'Raceway Perimeter Wall North' };
+  buildingBoxes.push(boxNorth); registerCollider(boxNorth);
+
+  // 2. South Wall Segment (Z from +16 to +450m)
+  const southLen = 434;
+  const southWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, southLen), stoneMat);
+  southWall.position.set(wallX, wallHeight / 2, 16 + southLen / 2);
+  scene.add(southWall);
+
+  const boxSouth = { minX: wallX - wallThickness/2, maxX: wallX + wallThickness/2, minZ: 16, maxZ: 450, minY: 0, maxY: wallHeight, type: 'Raceway Perimeter Wall South' };
+  buildingBoxes.push(boxSouth); registerCollider(boxSouth);
+
+  // Watchtowers & Decorative Pillars along the wall
+  for (let z = -420; z <= 420; z += 60) {
+    if (Math.abs(z) < 30) continue;
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(wallThickness + 1.8, wallHeight + 3.0, wallThickness + 1.8), darkSteel);
+    pillar.position.set(wallX, (wallHeight + 3.0) / 2, z);
+    scene.add(pillar);
+
+    const capLight = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), redNeonMat);
+    capLight.position.set(wallX, wallHeight + 3.8, z);
+    scene.add(capLight);
+  }
+
+  // 3. GRAND GATEWAY ENTRANCE ARCHWAY (Spanning Z = -16m to +16m)
+  const gateGroup = new THREE.Group();
+
+  // Left Gate Tower (North Side, Z = -16.0)
+  const towerL = new THREE.Mesh(new THREE.BoxGeometry(6.0, 18.0, 6.0), darkSteel);
+  towerL.position.set(0, 9.0, -16.0);
+  gateGroup.add(towerL);
+
+  const towerLTrim = new THREE.Mesh(new THREE.BoxGeometry(6.6, 1.2, 6.6), goldMat);
+  towerLTrim.position.set(0, 17.5, -16.0);
+  gateGroup.add(towerLTrim);
+
+  const boxTowerL = { minX: wallX - 3.0, maxX: wallX + 3.0, minZ: -19.0, maxZ: -13.0, minY: 0, maxY: 18.0, type: 'Raceway Gate Tower North' };
+  buildingBoxes.push(boxTowerL); registerCollider(boxTowerL);
+
+  // Right Gate Tower (South Side, Z = +16.0)
+  const towerR = new THREE.Mesh(new THREE.BoxGeometry(6.0, 18.0, 6.0), darkSteel);
+  towerR.position.set(0, 9.0, 16.0);
+  gateGroup.add(towerR);
+
+  const towerRTrim = new THREE.Mesh(new THREE.BoxGeometry(6.6, 1.2, 6.6), goldMat);
+  towerRTrim.position.set(0, 17.5, 16.0);
+  gateGroup.add(towerRTrim);
+
+  const boxTowerR = { minX: wallX - 3.0, maxX: wallX + 3.0, minZ: 13.0, maxZ: 19.0, minY: 0, maxY: 18.0, type: 'Raceway Gate Tower South' };
+  buildingBoxes.push(boxTowerR); registerCollider(boxTowerR);
+
+  // Overhead Bridge Structure
+  const overheadBridge = new THREE.Mesh(new THREE.BoxGeometry(5.2, 5.0, 32.0), darkSteel);
+  overheadBridge.position.set(0, 15.5, 0);
+  gateGroup.add(overheadBridge);
+
+  const archTrimBottom = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.8, 32.8), goldMat);
+  archTrimBottom.position.set(0, 13.1, 0);
+  gateGroup.add(archTrimBottom);
+
+  // Center Signboard Display
+  const signBoardCanvas = document.createElement('canvas');
+  signBoardCanvas.width = 512; signBoardCanvas.height = 128;
+  const sCtx = signBoardCanvas.getContext('2d');
+  sCtx.fillStyle = '#0f172a'; sCtx.fillRect(0, 0, 512, 128);
+  sCtx.strokeStyle = '#f59e0b'; sCtx.lineWidth = 6; sCtx.strokeRect(6, 6, 500, 116);
+  sCtx.fillStyle = '#f59e0b'; sCtx.font = '900 34px "Bebas Neue", sans-serif'; sCtx.textAlign = 'center';
+  sCtx.fillText('INTERNATIONAL RACEWAY GATEWAY', 256, 50);
+  sCtx.fillStyle = '#38bdf8'; sCtx.font = '700 20px "JetBrains Mono", monospace';
+  sCtx.fillText('★ SPEED ZONE ENTRANCE ➔ 250 KM/H ★', 256, 92);
+
+  const signTex = new THREE.CanvasTexture(signBoardCanvas);
+  const signMat = new THREE.MeshStandardMaterial({ map: signTex, emissiveMap: signTex, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.95 });
+
+  const signFront = new THREE.Mesh(new THREE.PlaneGeometry(28.0, 4.2), signMat);
+  signFront.position.set(-2.65, 15.5, 0);
+  signFront.rotation.y = -Math.PI / 2;
+  gateGroup.add(signFront);
+
+  const signBack = new THREE.Mesh(new THREE.PlaneGeometry(28.0, 4.2), signMat);
+  signBack.position.set(2.65, 15.5, 0);
+  signBack.rotation.y = Math.PI / 2;
+  gateGroup.add(signBack);
+
+  // Center Median Checkpoint Island
+  const centerIsland = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.4, 2.4), darkSteel);
+  centerIsland.position.set(0, 0.2, 0);
+  gateGroup.add(centerIsland);
+
+  const boothPillar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.8, 1.2), darkSteel);
+  boothPillar.position.set(0, 2.1, 0);
+  gateGroup.add(boothPillar);
+
+  // Green Open Lane Signals
+  [-7.0, 7.0].forEach(lz => {
+    const signalGreen = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), greenNeonMat);
+    signalGreen.position.set(-2.7, 12.5, lz);
+    gateGroup.add(signalGreen);
+
+    const signalGreenBack = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), greenNeonMat);
+    signalGreenBack.position.set(2.7, 12.5, lz);
+    gateGroup.add(signalGreenBack);
+  });
+
+  // Tower Top Beacons
+  const beaconL = new THREE.Mesh(new THREE.SphereGeometry(0.8, 10, 10), cyanNeonMat);
+  beaconL.position.set(0, 19.0, -16.0);
+  gateGroup.add(beaconL);
+
+  const beaconR = new THREE.Mesh(new THREE.SphereGeometry(0.8, 10, 10), cyanNeonMat);
+  beaconR.position.set(0, 19.0, 16.0);
+  gateGroup.add(beaconR);
+
+  gateGroup.position.set(wallX, 0, 0);
+  scene.add(gateGroup);
+}
+
 /* INDILA - LOVE STORY MUSIC VIDEO CANVAS RENDERER FOR SEATBACK SCREENS */
 function initLoveStoryVideoCanvas() {
   loveStoryCanvas = document.createElement('canvas');
@@ -1110,72 +1371,6 @@ function initInstancedTrees(){
   scene.add(treeLeavesInstancedMesh);
 }
 
-function createXmasTreeMesh(scale){
-  const xmasGroup = new THREE.Group();
-  const pineNeedleMat = new THREE.MeshStandardMaterial({ color: 0x0f4c28, roughness: 0.65 });
-  const starMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 3.0 });
-  const bulbRedMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2.5 });
-  const bulbCyanMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 2.5 });
-  const bulbGoldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 2.5 });
-
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35*scale, 0.55*scale, 3.2*scale, 6), trunkMat);
-  trunk.position.y = 1.6*scale; xmasGroup.add(trunk);
-
-  const tiers = [
-    { r: 2.8*scale, h: 3.2*scale, y: 3.2*scale },
-    { r: 2.2*scale, h: 2.8*scale, y: 4.8*scale },
-    { r: 1.6*scale, h: 6.2*scale, y: 6.2*scale },
-    { r: 0.9*scale, h: 1.6*scale, y: 7.4*scale }
-  ];
-
-  tiers.forEach((t) => {
-    const tierMesh = new THREE.Mesh(new THREE.ConeGeometry(t.r, t.h, 8), pineNeedleMat);
-    tierMesh.position.y = t.y;
-    xmasGroup.add(tierMesh);
-  });
-
-  const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.45*scale), starMat);
-  star.position.y = 8.3*scale;
-  star.rotation.y = Math.PI / 4;
-  xmasGroup.add(star);
-
-  const bulbMats = [bulbRedMat, bulbCyanMat, bulbGoldMat];
-  for(let b=0; b<18; b++){
-    const bMat = bulbMats[b % 3];
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14*scale, 6, 6), bMat);
-    const angle = (b / 18) * Math.PI * 2 + (b * 0.4);
-    const radius = 2.2*scale - ((b / 18) * 1.5*scale);
-    const hY = 3.0*scale + ((b / 18) * 4.2*scale);
-    bulb.position.set(Math.cos(angle)*radius, hY, Math.sin(angle)*radius);
-    xmasGroup.add(bulb);
-  }
-
-  return xmasGroup;
-}
-
-function createBroadleafTreeMesh(scale){
-  const leafyGroup = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32*scale, 0.52*scale, 3.8*scale, 6), trunkMat);
-  trunk.position.y = 1.9*scale; leafyGroup.add(trunk);
-
-  const clusters = [
-    { r: 2.4*scale, x: 0, y: 4.8*scale, z: 0, mat: leafDarkMat },
-    { r: 1.8*scale, x: -0.9*scale, y: 5.2*scale, z: 0.7*scale, mat: leafMidMat },
-    { r: 1.8*scale, x: 0.9*scale, y: 5.2*scale, z: -0.7*scale, mat: leafMidMat },
-    { r: 1.6*scale, x: 0.7*scale, y: 5.6*scale, z: 0.8*scale, mat: leafLightMat },
-    { r: 1.4*scale, x: 0, y: 6.2*scale, z: 0, mat: leafLightMat }
-  ];
-
-  clusters.forEach(c => {
-    const fMesh = new THREE.Mesh(new THREE.DodecahedronGeometry(c.r, 1), c.mat);
-    fMesh.position.set(c.x, c.y, c.z);
-    leafyGroup.add(fMesh);
-  });
-
-  return leafyGroup;
-}
-
-/* ROBUST CLEARANCE CHECK TO PREVENT TREES / PARKS ON ALL ROADS & BRIDGES */
 function isNearRoad(x, z, minDist = 16.0){
   if(Math.abs(z - HIGHWAY_Z) < minDist + 8.0) return true;
   if(Math.abs(z - FLYOVER.z) < minDist + 4.0 && Math.abs(x) < WORLD.half + 40.0) return true;
@@ -1198,7 +1393,6 @@ function isNearRoad(x, z, minDist = 16.0){
     }
   }
 
-  // Check Race Track Proximity
   if(raceTrackSamplePoints && raceTrackSamplePoints.length > 0){
     for(let i = 0; i < raceTrackSamplePoints.length; i += 3){
       const rp = raceTrackSamplePoints[i];
@@ -1206,14 +1400,11 @@ function isNearRoad(x, z, minDist = 16.0){
     }
   }
 
-  // Check Suburban Access Road Proximity
   if(Math.abs(z - SUBURBAN_ZONE.roadZ) < minDist + 4.0 && x >= SUBURBAN_ZONE.startX - 40 && x <= SUBURBAN_ZONE.endX + 40) return true;
 
   if(Math.hypot(x - COAST.islandX, z - COAST.islandZ) < COAST.islandR + 10.0) return true;
   if(Math.hypot(x - GROUND_HELIPAD.x, z - GROUND_HELIPAD.z) < GROUND_HELIPAD.radius + 12.0) return true;
-
   if(Math.hypot(x - STATION_POS.x, z - STATION_POS.z) < 45.0) return true;
-
   if(isPointOnRoad(x, z)) return true;
 
   return false;
@@ -1242,8 +1433,8 @@ function addDetailedTree(x, z, scale = 1.0){
   propColliders.push(collider);
   registerCollider(collider);
 }
-function updateAllLODs(activeX, activeZ){
-  }
+
+function updateAllLODs(activeX, activeZ){}
 
 function init(){
   try {
@@ -1271,7 +1462,7 @@ function init(){
     buildLights(); buildSky(); buildGround(); buildSheikhZayedRoadAndMetro();
     buildMountainsAndGreenTerrain(); buildVillageBridge(); buildMountainTrainAndBridges(); buildRailwayStation(); 
     buildSuburbanLinearNeighborhood(); buildMountainLuxuryBungalow(); buildRaceTrack(); buildFogBarrier(); buildCity(); buildFlyover();
-    buildCoast(); buildHashiqBeachLandmark(); buildGroundHelipad(); buildLamps(); buildTrafficLights(); buildBusStops();
+    buildCoast(); buildHashiqBeachLandmark(); buildGroundHelipad(); buildBeachTVFrame(); buildMountainTVFrame(); buildRacewayGatewayWall(); buildLamps(); buildTrafficLights(); buildBusStops();
     buildTraffic(); buildPedestrians(); buildHummerH3Car(); buildDrivableHelicopter(); buildStars(); buildPoliceHelicopter();
     buildHouseInterior();
 
@@ -1515,33 +1706,24 @@ function addBusStopShelter(x, z, rotY, frameMat, glassMat, benchMat, signMat){
 }
 
 function getTerrainHeight(x, z){
-  // Flat ground clearing for Race Track Circuit (300m East)
   if (Math.hypot(x - RACE_TRACK.cx, z - RACE_TRACK.cz) < RACE_TRACK.radius + RACE_TRACK.straightLen/2 + 100) {
     return 0.0;
   }
-
-  // Tunnel Road Pass Cutout (Z=0 corridor between City and Race Track)
   if (x >= WORLD.half - 40 && x <= RACE_TRACK.cx && Math.abs(z) < 22.0) {
     return 0.0;
   }
-
-  // Flat ground clearing for Suburban Villa Row (150m North)
   if (z <= SUBURBAN_ZONE.roadZ + 20 && z >= SUBURBAN_ZONE.rowZ - 30 && x >= SUBURBAN_ZONE.startX - 60 && x <= SUBURBAN_ZONE.endX + 60) {
     return 0.0;
   }
-
   if (x >= -360 && x <= -120 && z <= -540 && z >= -820) {
     return 0.0;
   }
-
   if(Math.abs(x) <= WORLD.half + 30 && z >= -WORLD.half - 30 && z < COAST.beachStartZ){
     return 0.0;
   }
-
   if(z <= -780 && x >= -500 && x <= 150){
     return 0.0;
   }
-
   if(villageBridgePoints && villageBridgePoints.length > 0){
     for(let i = 0; i < villageBridgePoints.length; i += 4){
       const bp = villageBridgePoints[i];
@@ -1553,37 +1735,28 @@ function getTerrainHeight(x, z){
       }
     }
   }
-
   return getRawTerrainHeight(x, z);
 }
 
 function getRawTerrainHeight(x, z){
-  // Flat ground clearing for Race Track Circuit (300m East)
   if (Math.hypot(x - RACE_TRACK.cx, z - RACE_TRACK.cz) < RACE_TRACK.radius + RACE_TRACK.straightLen/2 + 100) {
     return 0.0;
   }
-
-  // Tunnel Road Pass Cutout
   if (x >= WORLD.half - 40 && x <= RACE_TRACK.cx && Math.abs(z) < 22.0) {
     return 0.0;
   }
-
-  // Mountain Barrier Ridge between City (X=672) and Race Track (X=972)
   if (x >= WORLD.half + 70 && x <= WORLD.half + 190 && Math.abs(z) < 450.0) {
     const distCenter = 1.0 - Math.abs(x - (WORLD.half + 130)) / 60.0;
     const peak = Math.sin((x - WORLD.half) * 0.05) * 42.0 + Math.cos(z * 0.02) * 18.0;
     return Math.max(0.0, (peak + 24.0) * Math.max(0, distCenter));
   }
-
   if (x >= -360 && x <= -120 && z <= -540 && z >= -820) {
     return 0.0;
   }
-
   if(z < -WORLD.half - 30 && z > -780){
     const ridge = Math.sin((z + 650) * 0.02) * 32.0 + Math.cos(x * 0.025) * 25.0 + 30.0;
     return Math.max(0.0, ridge);
   }
-
   if(z >= COAST.beachStartZ) return 0.0;
 
   const dx = Math.max(0, Math.abs(x) - (WORLD.half + 30)), dz = Math.max(0, Math.abs(z) - (WORLD.half + 30)), dist = Math.hypot(dx, dz);
@@ -1601,18 +1774,12 @@ function buildMountainsAndGreenTerrain(){
   const terrainMesh = new THREE.Mesh(terrGeo, new THREE.MeshStandardMaterial({ map: grassTexOuter, color: 0x3d703e, roughness: 0.95 }));
   terrainMesh.rotation.x = -Math.PI/2; terrainMesh.position.y = -0.05; terrainMesh.receiveShadow = false; terrainMesh.matrixAutoUpdate = false; terrainMesh.updateMatrix(); scene.add(terrainMesh);
 
-  
-
   buildOuterForests();
 }
 
-/* FOG BARRIER MESH BETWEEN CITY AND RACEWAY */
-function buildFogBarrier(){
-}
+function buildFogBarrier(){}
 
-/* INTERNATIONAL RACEWAY CIRCUIT (300M EAST OF CITY) */
 function buildRaceTrack(){
-  // 1. High-Contrast Flat Asphalt Apron Plane
   const apronW = 650, apronH = 650;
   const apronMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(apronW, apronH),
@@ -1622,7 +1789,6 @@ function buildRaceTrack(){
   apronMesh.position.set(RACE_TRACK.cx, 0.05, RACE_TRACK.cz);
   scene.add(apronMesh);
 
-  // 2. Track Circuit Geometry (Continuous Oval Loop)
   raceTrackCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(RACE_TRACK.cx - RACE_TRACK.radius, 0.1, -RACE_TRACK.straightLen/2),
     new THREE.Vector3(RACE_TRACK.cx - RACE_TRACK.radius, 0.1,  RACE_TRACK.straightLen/2),
@@ -1648,7 +1814,6 @@ function buildRaceTrack(){
     const forward = new THREE.Vector3().subVectors(p2, p1).normalize();
     const side = new THREE.Vector3(-forward.z, 0, forward.x).normalize();
 
-    // Red/White Striped Kerb Edge Trims
     [-1, 1].forEach(s => {
       const kerbMat = (i % 2 === 0) ? kerbRedMat : kerbWhiteMat;
       const kerbPos = mid.clone().add(side.clone().multiplyScalar(s * (RACE_TRACK.width/2 + 0.6)));
@@ -1657,7 +1822,6 @@ function buildRaceTrack(){
     });
   }
 
-  // 3. Start / Finish Checkered Arch Gantry
   const gantryPos = new THREE.Vector3(RACE_TRACK.cx - RACE_TRACK.radius, 0.1, 0);
   const gantryGroup = new THREE.Group();
   const trussMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3, metalness: 0.85 });
@@ -1677,7 +1841,6 @@ function buildRaceTrack(){
   gantryGroup.position.copy(gantryPos);
   scene.add(gantryGroup);
 
-  // 4. Stadium Floodlight Towers
   for(let fl = 0; fl < 6; fl++){
     const angle = (fl / 6) * Math.PI * 2;
     const fx = RACE_TRACK.cx + Math.cos(angle) * (RACE_TRACK.radius + 35);
@@ -1693,7 +1856,6 @@ function buildRaceTrack(){
     floodSpot.position.set(fx, 23.0, fz); scene.add(floodSpot);
   }
 
-  // 5. Build Connecting Raceway Tunnel Highway & Portals
   const connRoadLen = (RACE_TRACK.cx - RACE_TRACK.radius) - WORLD.half;
   const connRoad = new THREE.Mesh(
     new THREE.PlaneGeometry(connRoadLen, 22.0),
@@ -1704,11 +1866,9 @@ function buildRaceTrack(){
   connRoad.position.set(WORLD.half + connRoadLen/2, 0.08, 0);
   scene.add(connRoad);
 
-  // Open Tunnel Entrance and Exit Portals (Zero Barriers/Blocks)
   createTunnelPortal(new THREE.Vector3(WORLD.half + 70, 0.1, 0), new THREE.Vector3(WORLD.half + 190, 0.1, 0), "RACEWAY TUNNEL PASS");
   createTunnelPortal(new THREE.Vector3(WORLD.half + 190, 0.1, 0), new THREE.Vector3(WORLD.half + 70, 0.1, 0), "CITY EXPRESS EXIT");
 
-  // 6. Spawn 3 AI Race Opponent Cars on Track (High Speed Configuration)
   const raceColors = [0xef4444, 0xfacc15, 0x38bdf8];
   aiRaceCars = [];
   for(let rc = 0; rc < 3; rc++){
@@ -1814,18 +1974,42 @@ function buildMountainTrainAndBridges(){
     
     const seatMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
     
-    // DUAL-SIDE INTERIOR TRAIN TV SCREENS (LEFT & RIGHT WALLS)
-    [-1.0, 1.0].forEach((sx, sIdx) => {
-      for(let sz = -4; sz <= 4; sz += 2.5){
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.8), seatMat);
-        seat.position.set(sx, 1.2, sz); coachGroup.add(seat);
+    [-0.9, 0.9].forEach((sx) => {
+      const playerSeat = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.55, 0.85), seatMat);
+      playerSeat.position.set(sx, 1.15, 0.0);
+      coachGroup.add(playerSeat);
 
-        // Mounted TV Screens on Both Left and Right Interior Walls
-        const seatTv = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.48), trainTvMat);
-        seatTv.position.set(sIdx === 0 ? -1.48 : 1.48, 2.1, sz);
-        seatTv.rotation.y = sIdx === 0 ? Math.PI/2 : -Math.PI/2;
-        coachGroup.add(seatTv);
-      }
+      const playerSeatBack = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.18), seatMat);
+      playerSeatBack.position.set(sx, 1.7, -0.4);
+      playerSeatBack.rotation.x = 0.08;
+      coachGroup.add(playerSeatBack);
+
+      const frontSeat = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.45, 0.85), seatMat);
+      frontSeat.position.set(sx, 1.0, 2.25);
+      coachGroup.add(frontSeat);
+
+      const frontSeatBack = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.9, 0.18), seatMat);
+      frontSeatBack.position.set(sx, 1.45, 1.85);
+      frontSeatBack.rotation.x = -0.08;
+      coachGroup.add(frontSeatBack);
+
+      const seatTvMount = new THREE.Mesh(
+        new THREE.BoxGeometry(0.68, 0.42, 0.04),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6, metalness: 0.8 })
+      );
+      seatTvMount.position.set(sx, 1.48, 1.74);
+      seatTvMount.rotation.x = -0.08;
+      coachGroup.add(seatTvMount);
+
+      const seatTvScreen = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.64, 0.35),
+        trainTvMat
+      );
+      seatTvScreen.position.set(sx, 1.48, 1.71);
+      seatTvScreen.rotation.set(-0.08, Math.PI, 0);
+      seatTvScreen.userData = { isTvScreen: true, inTrainTv: true };
+      coachGroup.add(seatTvScreen);
+      houseMeshesList.push(seatTvScreen);
     });
 
     scene.add(coachGroup);
@@ -1898,14 +2082,17 @@ function tryEnterTrain(){
     playMoneySound();
     if(domDistrictName) domDistrictName.textContent = 'Mountain Express Scenic Train';
     if(domTrainText) domTrainText.textContent = 'EXIT TRAIN';
+    if(domTvToggleBtn) domTvToggleBtn.classList.add('show');
   } else {
     inTrain = false;
+    tvPlaying = false;
     carState.x = STATION_DOOR_POS.x;
     carState.z = STATION_DOOR_POS.z + 5;
     carState.speed = 0;
-    showToast('EXITED TRAIN TO RAILWAY STATION 出发');
+    showToast('EXITED TRAIN TO RAILWAY STATION');
     if(domDistrictName) domDistrictName.textContent = getDistrictNameAt(carState.x, carState.z);
     if(domTrainText) domTrainText.textContent = 'ENTER TRAIN';
+    if(domTvToggleBtn) domTvToggleBtn.classList.remove('show');
   }
 }
 
@@ -2037,7 +2224,6 @@ function buildVillageBridge(){
   createTunnelPortal(points[90], points[88], "VILLAGE EXIT");
 }
 
-/* SUBURBAN LINEAR NEIGHBORHOOD & FRONT ACCESS ROAD (150M FROM CITY) */
 function buildSuburbanLinearNeighborhood(){
   houseMeshesList = [];
   HOUSE_DOORS.length = 0;
@@ -2050,7 +2236,6 @@ function buildSuburbanLinearNeighborhood(){
   const winGlassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0xf59e0b, emissiveIntensity: 0.85, roughness: 0.1 });
   const garageMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
 
-  // 1. Suburban Front Access Road (14m wide)
   const accessRoadLen = (SUBURBAN_ZONE.endX - SUBURBAN_ZONE.startX) + 120;
   const accessRoadMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(accessRoadLen, 14.0),
@@ -2060,7 +2245,6 @@ function buildSuburbanLinearNeighborhood(){
   accessRoadMesh.position.set((SUBURBAN_ZONE.startX + SUBURBAN_ZONE.endX)/2, 0.08, SUBURBAN_ZONE.roadZ);
   scene.add(accessRoadMesh);
 
-  // 2. City Connector Road (Connecting City Border to Suburban Road at X = 0)
   const connRoadLen = Math.abs(SUBURBAN_ZONE.roadZ - (-WORLD.half));
   const connRoadMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(16.0, connRoadLen),
@@ -2070,7 +2254,6 @@ function buildSuburbanLinearNeighborhood(){
   connRoadMesh.position.set(0, 0.08, (-WORLD.half + SUBURBAN_ZONE.roadZ)/2);
   scene.add(connRoadMesh);
 
-  // 3. Linear Row of Houses
   const stepX = (SUBURBAN_ZONE.endX - SUBURBAN_ZONE.startX) / (SUBURBAN_ZONE.count - 1);
 
   for(let i=0; i < SUBURBAN_ZONE.count; i++){
@@ -2100,12 +2283,10 @@ function buildSuburbanLinearNeighborhood(){
     homeGroup.position.set(lx, terrainY, lz); 
     scene.add(homeGroup);
 
-    // Driveway Parked Neighborhood Vehicles
     const parkedCar = createDetailedTrafficMesh(i % 2 === 0 ? 'benz' : 'landcruiser');
     parkedCar.position.set(lx - w/2 - 2.8, terrainY + 0.05, lz + 8.5);
     scene.add(parkedCar);
 
-    // Local Sidewalk Pedestrians
     const ped = createDetailedHumanMesh(0xe0a98b, 0x3b82f6, 0x334155);
     ped.position.set(lx + 4.0, terrainY + 0.05, SUBURBAN_ZONE.roadZ + 4.0);
     scene.add(ped);
@@ -2153,15 +2334,11 @@ function buildMountainLuxuryBungalow(){
 }
 
 function initTvCanvas(){
-  tvCanvas = document.createElement('canvas'); tvCanvas.width = 512; tvCanvas.height = 288;
+  tvCanvas = document.createElement('canvas');
+  tvCanvas.width = 512;
+  tvCanvas.height = 288;
   tvCtx = tvCanvas.getContext('2d');
   tvTexture = new THREE.CanvasTexture(tvCanvas);
-
-  localTvImageObj = new Image();
-  localTvImageObj.src = 'file:///C:/Users/USER/Desktop/255.jpg';
-  localTvImageObj.onerror = function(){
-    this.src = 'C:/Users/USER/Desktop/255.jpg';
-  };
   drawTvOffScreen();
 }
 
@@ -2172,7 +2349,7 @@ function drawTvOffScreen(){
   tvCtx.fillStyle = '#f59e0b'; tvCtx.font = '700 32px "Bebas Neue", sans-serif'; tvCtx.textAlign = 'center';
   tvCtx.fillText('TV POWERED OFF', 256, 125);
   tvCtx.fillStyle = '#94a3b8'; tvCtx.font = '500 16px "JetBrains Mono", sans-serif';
-  tvCtx.fillText('CLICK TV SCREEN OR PRESS "📺 TOGGLE TV" TO PLAY LOCAL MEDIA (255.jpg)', 256, 170);
+  tvCtx.fillText('CLICK TV SCREEN OR PRESS "📺 TOGGLE TV" TO PLAY LOCAL MEDIA', 256, 170);
   if(tvTexture) tvTexture.needsUpdate = true;
 }
 
@@ -2180,50 +2357,38 @@ function updateTvCanvas(timeSec){
   if(!tvCtx) return;
   if(!tvPlaying){
     drawTvOffScreen();
-  } else {
-    const w = 512, h = 288;
-    if(localTvImageObj && localTvImageObj.complete && localTvImageObj.naturalWidth !== 0){
-      const panX = Math.sin(timeSec * 0.5) * 20;
-      const panY = Math.cos(timeSec * 0.4) * 12;
-      const zoom = 1.0 + Math.sin(timeSec * 0.3) * 0.08;
-
-      tvCtx.save();
-      tvCtx.translate(w/2, h/2);
-      tvCtx.scale(zoom, zoom);
-      tvCtx.translate(-w/2 + panX, -h/2 + panY);
-      tvCtx.drawImage(localTvImageObj, 0, 0, w, h);
-      tvCtx.restore();
-
-      // CRT Scanline Overlay Effect
-      tvCtx.fillStyle = 'rgba(8, 12, 24, 0.15)';
-      for(let y = 0; y < h; y += 6){
-        tvCtx.fillRect(0, y, w, 2);
-      }
-
-      tvCtx.fillStyle = 'rgba(8, 12, 24, 0.75)';
-      tvCtx.fillRect(0, h - 36, w, 36);
-      tvCtx.fillStyle = '#f59e0b';
-      tvCtx.font = '700 16px "Bebas Neue", sans-serif';
-      tvCtx.textAlign = 'center';
-      tvCtx.fillText('LOCAL MEDIA PLAYER — 255.jpg', w/2, h - 14);
-    } else {
-      tvCtx.fillStyle = '#1e1b4b'; tvCtx.fillRect(0, 0, w, h);
-      tvCtx.fillStyle = '#38bdf8'; tvCtx.font = '700 24px "Bebas Neue", sans-serif'; tvCtx.textAlign = 'center';
-      tvCtx.fillText('LOADING LOCAL FILE C:\\Users\\USER\\Desktop\\255.jpg...', w/2, h/2);
-    }
-    if(tvTexture) tvTexture.needsUpdate = true;
+    return;
   }
+  const w = 512, h = 288;
+  const bg = tvCtx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, '#0f172a');
+  bg.addColorStop(0.5, '#1e293b');
+  bg.addColorStop(1, '#0284c7');
+  tvCtx.fillStyle = bg;
+  tvCtx.fillRect(0, 0, w, h);
+
+  tvCtx.fillStyle = '#38bdf8';
+  for(let i = 0; i < 20; i++){
+    const bh = 20 + Math.abs(Math.sin(timeSec * 5 + i * 0.5)) * 90;
+    tvCtx.fillRect(40 + i * 22, h - 50 - bh, 14, bh);
+  }
+
+  tvCtx.fillStyle = 'rgba(8, 12, 24, 0.85)';
+  tvCtx.fillRect(0, h - 42, w, 42);
+  tvCtx.fillStyle = '#f59e0b';
+  tvCtx.font = '700 18px "Bebas Neue", sans-serif';
+  tvCtx.textAlign = 'center';
+  tvCtx.fillText('★ NIGHT DRIVE IN-SEAT STREAMING ★', w/2, h - 15);
+
+  if(tvTexture) tvTexture.needsUpdate = true;
 }
 
 function toggleTvPower(){
   tvPlaying = !tvPlaying;
-  const tvImg = document.getElementById('local-tv-img');
   if(tvPlaying){
-    if(tvImg) tvImg.style.display = 'block';
-    showToast("HOUSE TV ACTIVE 📺 NOW PLAYING LOCAL ANIMATED MEDIA (255.jpg) 🎵");
+    showToast("HOUSE TV ACTIVE 📺 NOW PLAYING MEDIA 🎵");
     playMoneySound();
   } else {
-    if(tvImg) tvImg.style.display = 'none';
     drawTvOffScreen();
     showToast("TV POWERED OFF ⏸️");
   }
@@ -2259,16 +2424,14 @@ function buildHouseInterior(){
     const archTop = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 5.0), partitionMat); archTop.position.set(px, 4.4, 0); houseInteriorGroup.add(archTop);
   });
 
-  // In buildHouseInterior():
-// Change tvScreenMesh material to transparent so CSS3D iframe is fully visible:
-tvScreenMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(7.2, 4.0),
-  new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
-);
-tvScreenMesh.position.set(0, 2.6, -7.82);
-tvScreenMesh.userData = { isTvScreen: true };
-houseInteriorGroup.add(tvScreenMesh);
-houseMeshesList.push(tvScreenMesh);
+  tvScreenMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.2, 4.0),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false })
+  );
+  tvScreenMesh.position.set(0, 2.6, -7.82);
+  tvScreenMesh.userData = { isTvScreen: true };
+  houseInteriorGroup.add(tvScreenMesh);
+  houseMeshesList.push(tvScreenMesh);
 
   const tvStand = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.7, 1.4), woodTableMat); tvStand.position.set(0, 0.35, -7.1); houseInteriorGroup.add(tvStand);
   [-4.6, 4.6].forEach(sx => {
@@ -2488,16 +2651,16 @@ function updatePlayerHelicopter(dt){
 
 function toggleVehicleSwitch(){
   initAudio(); if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  if(!inHelicopter){
-    inHelicopter = true; playerHeliState.engineOn = true; carState.speed = 0;
-    showToast('HELICOPTER TURBINE STARTED! FLY HIGH 🚁'); if(domDistrictName) domDistrictName.textContent = 'Piloting Stealth VIP Helicopter';
-  } else {
-    if(playerHeliState.y < getSurfaceHeight(playerHeliState.x, playerHeliState.z) + 3.0){
-      inHelicopter = false; playerHeliState.engineOn = false;
-      if(domSurfaceBadge) domSurfaceBadge.classList.remove('flying'); showToast('SWITCHED TO HUMMER CAB 🚗');
-    } else { showToast('LAND NEAR GROUND TO EXIT HELICOPTER'); }
+    if(!inHelicopter){
+      inHelicopter = true; playerHeliState.engineOn = true; carState.speed = 0;
+      showToast('HELICOPTER TURBINE STARTED! FLY HIGH 🚁'); if(domDistrictName) domDistrictName.textContent = 'Piloting Stealth VIP Helicopter';
+    } else {
+      if(playerHeliState.y < getSurfaceHeight(playerHeliState.x, playerHeliState.z) + 3.0){
+        inHelicopter = false; playerHeliState.engineOn = false;
+        if(domSurfaceBadge) domSurfaceBadge.classList.remove('flying'); showToast('SWITCHED TO HUMMER CAB 🚗');
+      } else { showToast('LAND NEAR GROUND TO EXIT HELICOPTER'); }
+    }
   }
-}
 
 function tryEnterHouse(){
   initAudio(); 
@@ -2516,7 +2679,6 @@ function tryEnterHouse(){
     if(inTrain) inTrain = false;
     carState.speed = 0;
 
-    // ENABLE CLICKING ON YOUTUBE SCREEN
     if(cssWrap) cssWrap.style.pointerEvents = 'auto';
 
     showToast('WELCOME INSIDE YOUR LUXURY HOUSE RESIDENCE! 🏠');
@@ -2527,7 +2689,6 @@ function tryEnterHouse(){
   } else {
     inHouse = false;
 
-    // DISABLE CLICKING ON YOUTUBE SCREEN SO DRIVING CONTROLS WORK
     if(cssWrap) cssWrap.style.pointerEvents = 'none';
 
     showToast('EXITED LUXURY RESIDENCE TO TAXI 🚗');
@@ -2536,6 +2697,7 @@ function tryEnterHouse(){
     if(domTvToggleBtn) domTvToggleBtn.classList.remove('show');
   }
 }
+
 function buildCity(){
   computeRoutes(); const n = WORLD.blocks; const offset = Math.floor(n/2); let seed = 3579; function rand(){ seed = (seed*9301+49297)%233280; return seed/233280; }
   for(let i=0;i<n;i++){
@@ -2654,7 +2816,7 @@ let lastDetailCheckTime = 0;
 
 function updateNearbyBuildingDetails(activeX, activeZ) {
   const now = performance.now() * 0.001;
-  if (now - lastDetailCheckTime < 0.2) return; // Check only 5 times per second
+  if (now - lastDetailCheckTime < 0.2) return;
   lastDetailCheckTime = now;
 
   buildingTransforms.forEach((b, idx) => {
@@ -2702,7 +2864,9 @@ function updateNearbyBuildingDetails(activeX, activeZ) {
       }
     }
   });
-}let grassTex = null;
+}
+
+let grassTex = null;
 function makeGrassTexture(){
   if(grassTex) return grassTex;
   const c = document.createElement('canvas'); c.width = c.height = 128; const ctx = c.getContext('2d');
@@ -2898,7 +3062,8 @@ function buildTwinTowers(cx, cz, baseH){
       vStrip.position.set(tx + cx, baseH + (totalH * 0.425) + 13, 12.1); group.add(vStrip);
     });
 
-    for(let ringY = 25; ringY < totalH * 0.85; ringY += 18){      const ring = new THREE.Mesh(new THREE.BoxGeometry(24.8, 0.6, 24.8), goldMetalMat);
+    for(let ringY = 25; ringY < totalH * 0.85; ringY += 18){
+      const ring = new THREE.Mesh(new THREE.BoxGeometry(24.8, 0.6, 24.8), goldMetalMat);
       ring.position.set(tx, baseH + 13 + ringY, 0); group.add(ring);
     }
 
@@ -3160,7 +3325,7 @@ const V_MAT = {
   glassClear: new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.0, metalness:0.05, transparent:true, opacity:0.02 }),
   glassSmoked: new THREE.MeshStandardMaterial({ color:0x030712, roughness:0.04, metalness:0.9, transparent:true, opacity:0.88 }),
   glassHeadlight: new THREE.MeshStandardMaterial({ color:0xfff0c2, emissive:0xfff0c2, emissiveIntensity:6.0, roughness:0.02 }),
- glassTaillightRed: new THREE.MeshStandardMaterial({ color:0x220005, emissive:0x000000, emissiveIntensity:0.0, roughness:0.5 }),
+  glassTaillightRed: new THREE.MeshStandardMaterial({ color:0x220005, emissive:0x000000, emissiveIntensity:0.0, roughness:0.5 }),
   tireRubber: new THREE.MeshStandardMaterial({ color:0x111318, roughness:0.85, metalness:0.1 }),
   chrome: new THREE.MeshStandardMaterial({ color:0xe2e8f0, roughness:0.12, metalness:0.98 }),
   interiorDark: new THREE.MeshStandardMaterial({ color:0x1e293b, roughness:0.9 }),
@@ -3282,7 +3447,7 @@ function createDetailedHummerMesh(bodyColorHex, plateText, playerName, isLocal =
   carGroup.add(spotR); carGroup.add(spotRTarget); spotR.target = spotRTarget;
 
   const rearGlowL = new THREE.PointLight(0xff0022, 0.0, 6.0); rearGlowL.position.set(-1.02, 1.25, -2.4); carGroup.add(rearGlowL);
-const rearGlowR = new THREE.PointLight(0xff0022, 0.0, 6.0); rearGlowR.position.set(1.02, 1.25, -2.4); carGroup.add(rearGlowR);
+  const rearGlowR = new THREE.PointLight(0xff0022, 0.0, 6.0); rearGlowR.position.set(1.02, 1.25, -2.4); carGroup.add(rearGlowR);
 
   carGroup.userData.headlights = [spotL, spotR];
   carGroup.userData.tailLightMat = tailLightMat;
@@ -3654,6 +3819,7 @@ function getValidRoadPosition(){
 const ALL_PLACES = [
   { name: "Suburban Villa Neighborhood", pos: new THREE.Vector3(0, 0.1, SUBURBAN_ZONE.roadZ), desc: "Linear Residential Row (150m North)" },
   { name: "International Raceway Circuit", pos: new THREE.Vector3(RACE_TRACK.cx, 0.1, RACE_TRACK.cz), desc: "Full 3D Circuit (250 KM/H Top Speed)" },
+  { name: "Raceway City Gateway", pos: new THREE.Vector3(WORLD.half + 40, 0.1, 0), desc: "High-Speed Border Wall Entrance Arch" },
   { name: "Grand Railway Station", pos: new THREE.Vector3(0, 0.1, -855), desc: "Mountain Express Terminal" },
   { name: "Twin Towers Resort Island", pos: new THREE.Vector3(COAST.islandX - 35, COAST.islandHeight, COAST.islandZ - 10), desc: "Luxury 5-Star Twin Skyscrapers" },
   { name: "Beach Helipad Terminal", pos: new THREE.Vector3(GROUND_HELIPAD.x, 0.1, GROUND_HELIPAD.z), desc: "Helicopter Departure Pad" },
@@ -4119,7 +4285,6 @@ function updateCar(dt){
     else { domSurfaceBadge.textContent = ''; }
   }
 
-  // Speed & acceleration profiles: Raceway grants top speed of 250 KM/H (78.125 * 3.2 = 250 KM/H)
   const accel = onRaceTrack ? 88 : (onRoad ? 48 : 26);
   const friction = onRaceTrack ? 5.0 : (onRoad ? 9.0 : 25.0);
   const maxSpeed = onRaceTrack ? 78.125 : (onRoad ? 58 : 28);
@@ -4205,28 +4370,25 @@ function updateCar(dt){
   car.position.set(carState.x, currentSurfaceHeight, carState.z);
   car.rotation.set(carState.pitch, carState.heading, carState.roll, 'YXZ');
 
-  // REPLACE THIS BLOCK IN updateCar(dt):
-if(car.userData.tailLightMat){
-  const isBraking = throttle < 0 || (carState.speed > 1.0 && (keys['s'] || keys['arrowdown']));
+  if(car.userData.tailLightMat){
+    const isBraking = throttle < 0 || (carState.speed > 1.0 && (keys['s'] || keys['arrowdown']));
 
-  if (isBraking) {
-    // Red glow ON when braking
-    car.userData.tailLightMat.color.setHex(0xff0022);
-    car.userData.tailLightMat.emissive.setHex(0xff0000);
-    car.userData.tailLightMat.emissiveIntensity = 8.0;
-    if(car.userData.rearGlowLights){
-      car.userData.rearGlowLights.forEach(gl => gl.intensity = 6.0);
-    }
-  } else {
-    // Red glow OFF during normal drive/idle
-    car.userData.tailLightMat.color.setHex(0x220005);
-    car.userData.tailLightMat.emissive.setHex(0x000000);
-    car.userData.tailLightMat.emissiveIntensity = 0.0;
-    if(car.userData.rearGlowLights){
-      car.userData.rearGlowLights.forEach(gl => gl.intensity = 0.0);
+    if (isBraking) {
+      car.userData.tailLightMat.color.setHex(0xff0022);
+      car.userData.tailLightMat.emissive.setHex(0xff0000);
+      car.userData.tailLightMat.emissiveIntensity = 8.0;
+      if(car.userData.rearGlowLights){
+        car.userData.rearGlowLights.forEach(gl => gl.intensity = 6.0);
+      }
+    } else {
+      car.userData.tailLightMat.color.setHex(0x220005);
+      car.userData.tailLightMat.emissive.setHex(0x000000);
+      car.userData.tailLightMat.emissiveIntensity = 0.0;
+      if(car.userData.rearGlowLights){
+        car.userData.rearGlowLights.forEach(gl => gl.intensity = 0.0);
+      }
     }
   }
-}
 
   if(wantedTimer > 0){ wantedTimer -= dt; if(wantedTimer <= 0){ wantedTimer = 0; if(domWantedBox) domWantedBox.classList.remove('show'); } }
 
@@ -4349,10 +4511,8 @@ function setupInput(){
   if(domTrainSwitchBtn) domTrainSwitchBtn.addEventListener('click', tryEnterTrain);
   if(domCamBtn) domCamBtn.addEventListener('click', cycleCameraMode);
 
-  // Global Pointer Events on window for full 360-degree drag support everywhere
   window.addEventListener('pointerdown', e => {
-    // Let YouTube player iframe receive user clicks without triggering drag
-    if (e.target && e.target.closest('#local-tv-container')) {
+    if (e.target && e.target.closest('#local-tv-container, .outdoor-tv-container')) {
       return;
     }
 
@@ -4435,22 +4595,23 @@ function updateCamera(dt){
     const trainPos = leadCoach.position;
     const trainQuat = leadCoach.quaternion;
 
-    const localOffset = new THREE.Vector3(0.8, 1.8, 0); 
+    const localOffset = new THREE.Vector3(0.9, 1.75, 0.0);
     localOffset.applyQuaternion(trainQuat);
 
     const camX = trainPos.x + localOffset.x;
     const camY = trainPos.y + localOffset.y;
     const camZ = trainPos.z + localOffset.z;
 
-    const yaw = dragYaw;
-    const pitch = dragPitch;
-
-    const lookX = camX + Math.sin(yaw) * 30.0;
-    const lookY = camY + Math.sin(pitch) * 15.0;
-    const lookZ = camZ + Math.cos(yaw) * 30.0;
-
     camPos.set(camX, camY, camZ);
-    camLook.set(lookX, lookY, lookZ);
+
+    const localLook = new THREE.Vector3(
+      Math.sin(dragYaw) * Math.cos(dragPitch),
+      Math.sin(dragPitch),
+      Math.cos(dragYaw) * Math.cos(dragPitch)
+    );
+    localLook.applyQuaternion(trainQuat).multiplyScalar(30.0);
+    camLook.copy(camPos).add(localLook);
+
     camera.position.copy(camPos);
     camera.lookAt(camLook);
     return;
@@ -4735,22 +4896,22 @@ function loop(timestampSec){
   updateFpsCounter();
   updateAllLODs(activeX, activeZ);
   updateNearbyBuildingDetails(activeX, activeZ);
-  if (curTime - lastCanvasUpdateTime > 0.075) { // Updates at ~13 FPS
-  updateIndilaLoveStoryVideo(curTime);
-  updateTvCanvas(curTime);
-  updateDistrictAdCanvas(curTime);
-  updateTwinAdCanvas(curTime);
-  lastCanvasUpdateTime = curTime;
-}
+  if (curTime - lastCanvasUpdateTime > 0.075) {
+    updateIndilaLoveStoryVideo(curTime);
+    updateTvCanvas(curTime);
+    updateDistrictAdCanvas(curTime);
+    updateTwinAdCanvas(curTime);
+    lastCanvasUpdateTime = curTime;
+  }
   updateDayNight(dt); updateDubaiMetroTrain(dt); updateMountainTrain(dt); updateRaceCars(dt); updateTrafficLights(dt); updateHelicopter(dt); updatePlayerHelicopter(dt);
   if(started){ updateCar(dt); updateVehicleInteractionPrompt(); updateCabDuty(dt); }
   updateCamera(dt); updateTraffic(dt); updatePedestrians(dt); drawMinimap();
   if(domFullMapModal && domFullMapModal.classList.contains('show')) drawFullMap();
   
   renderer.render(scene, camera);
-if (inHouse && cssRenderer && cssScene) {
-  cssRenderer.render(cssScene, camera);
-}
+  if (cssRenderer && cssScene) {
+    cssRenderer.render(cssScene, camera);
+  }
 }
 
 init();
@@ -4759,3 +4920,4 @@ init();
 </script>
 </body>
 </html>
+```
