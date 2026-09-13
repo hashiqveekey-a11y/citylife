@@ -1,11 +1,13 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NIGHT DRIVE — High Speed Cab Duty Edition (Multiplayer Wi-Fi Edition)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NIGHT DRIVE — Ultra Realistic Flowing Water & Ground Photo Ads Edition</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
@@ -15,6 +17,9 @@
 
 <!-- PEERJS FOR LOCAL WI-FI MULTIPLAYER -->
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+<!-- ANIME.JS FOR WATER FLOW & GATE ANIMATIONS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 
 <!-- ADSTERRA NATIVE BANNER SCRIPT -->
 <script async="async" data-cfasync="false" src="https://pl30915359e.js"></script>
@@ -27,7 +32,7 @@
     --panel-border: rgba(56,242,192,0.32); --text-dim: rgba(230,238,245,0.65);
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
-  html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--ink); font-family:'JetBrains Mono', monospace; color:#eaf1f5; touch-action:none; user-select:none; }
+  html,body{ margin:0; padding:0; width:100%; height:100%; height: -webkit-fill-available; overflow:hidden; background:var(--ink); font-family:'JetBrains Mono', monospace; color:#eaf1f5; touch-action:none; user-select:none; }
   #canvas-wrap{ position:fixed; inset:0; z-index: 1; }
   #css3d-wrap {
     position: fixed;
@@ -52,9 +57,10 @@
     box-shadow: 0 0 45px rgba(245, 158, 11, 0.65);
   }
 
-  #local-tv-container iframe, .outdoor-tv-container iframe {
+  #local-tv-container video, .outdoor-tv-container video {
     width: 100%;
     height: 100%;
+    object-fit: cover;
     border: none;
     pointer-events: auto !important;
   }
@@ -107,7 +113,46 @@
   .keyChip b{ color:#fff; background:rgba(255,255,255,0.14); padding:2px 7px; border-radius:4px; font-size:11px; }
 
   #hud{ position:fixed; inset:0; z-index:20; pointer-events:none; }
-  #hud .fadeable{ transition: opacity 1s ease; }
+  #hud .fadeable{ transition: opacity 0.35s ease, transform 0.35s ease; }
+
+  #topLeft, #cabBox, #minimapWrap, #speedBox, #msgBtn, #camBtn, #tvToggleBtn, #vehicleSwitchBtn, #houseSwitchBtn, #trainSwitchBtn, #raceSwitchBtn, #damSwitchBtn, #adsterraBannerWrap, #hudToggleBtn, #fullscreenBtn {
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, visibility 0.35s ease !important;
+  }
+
+  #hud.hud-collapsed #topLeft,
+  #hud.hud-collapsed #msgBtn,
+  #hud.hud-collapsed #camBtn,
+  #hud.hud-collapsed #tvToggleBtn,
+  #hud.hud-collapsed #msgPanel {
+    transform: translateX(-180%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  #hud.hud-collapsed #cabBox,
+  #hud.hud-collapsed #minimapWrap,
+  #hud.hud-collapsed #vehicleSwitchBtn,
+  #hud.hud-collapsed #houseSwitchBtn,
+  #hud.hud-collapsed #trainSwitchBtn,
+  #hud.hud-collapsed #raceSwitchBtn,
+  #hud.hud-collapsed #damSwitchBtn {
+    transform: translateX(180%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  #hud.hud-collapsed #speedBox {
+    transform: translate(-50%, 180%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  #hud.hud-collapsed #adsterraBannerWrap {
+    transform: translate(-50%, -180%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
   #topLeft{ position:absolute; top:12px; left:12px; max-width:240px; background: var(--panel-bg); border:1px solid var(--panel-border); padding:8px 12px; border-radius:10px; backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
   #topLeft .tag{ font-size:8.5px; letter-spacing:0.2em; color:var(--accent); text-transform:uppercase; display:flex; justify-content:space-between; }
   #fpsCounter{ color:var(--gold); font-weight:bold; }
@@ -133,6 +178,13 @@
     position:absolute; top:75px; left:224px; pointer-events:auto; background:rgba(168,85,247,0.28); border:1.2px solid var(--purple); color:#fff; font-family:'Bebas Neue', sans-serif; font-size:14px; letter-spacing:0.1em; padding:5px 12px; border-radius:16px; cursor:pointer; backdrop-filter:blur(8px); box-shadow:0 0 15px rgba(168,85,247,0.35); display:none; align-items:center; gap:6px; transition:all .2s; z-index:35;
   }
   #tvToggleBtn.show{ display:flex; animation:pulse 1.2s infinite alternate; }
+
+  #hudToggleBtn{
+    position:absolute; top:12px; left:262px; pointer-events:auto; background:rgba(8,12,24,0.85); border:1.2px solid var(--accent); color:#fff; font-family:'Bebas Neue', sans-serif; font-size:14px; letter-spacing:0.1em; padding:5px 10px; border-radius:12px; cursor:pointer; backdrop-filter:blur(8px); box-shadow:0 0 12px rgba(56,242,192,0.3); z-index:36;
+  }
+  #fullscreenBtn{
+    position:absolute; top:12px; left:332px; pointer-events:auto; background:rgba(8,12,24,0.85); border:1.2px solid var(--gold); color:#fff; font-family:'Bebas Neue', sans-serif; font-size:14px; letter-spacing:0.1em; padding:5px 10px; border-radius:12px; cursor:pointer; backdrop-filter:blur(8px); box-shadow:0 0 12px rgba(245,158,11,0.3); z-index:36;
+  }
 
   #msgPanel{
     position:absolute; top:110px; left:12px; width:min(300px, 85vw); max-height:280px; background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:12px; padding:10px; backdrop-filter:blur(12px); box-shadow:0 10px 40px rgba(0,0,0,0.6); pointer-events:auto; display:flex; flex-direction:column; gap:6px; z-index:30; transition: all .3s ease; opacity:0; visibility:hidden; transform:translateY(-10px);
@@ -198,18 +250,34 @@
 
   #crashFlash{ position:fixed; inset:0; z-index:40; pointer-events:none; background:radial-gradient(ellipse at center, rgba(255,60,40,0.0) 0%, rgba(255,30,20,0.45) 100%); opacity:0; transition:opacity .08s ease; }
 
-  #vehicleSwitchBtn, #houseSwitchBtn, #trainSwitchBtn{
+  #vehicleSwitchBtn, #houseSwitchBtn, #trainSwitchBtn, #raceSwitchBtn, #damSwitchBtn{
     position:absolute; top:75px; right:12px; z-index:35; pointer-events:auto; background: rgba(16,185,129,0.25); border: 1.2px solid var(--accent); color: #fff; font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.1em; padding: 5px 12px; border-radius: 20px; backdrop-filter: blur(8px); cursor: pointer; display: flex; align-items: center; gap: 6px; opacity: 0; visibility: hidden;
   }
-  #vehicleSwitchBtn.show, #houseSwitchBtn.show, #trainSwitchBtn.show{ opacity: 1; visibility: visible; animation: pulseGlow 1.2s infinite alternate; }
+  #vehicleSwitchBtn.show, #houseSwitchBtn.show, #trainSwitchBtn.show, #raceSwitchBtn.show, #damSwitchBtn.show{ opacity: 1; visibility: visible; animation: pulseGlow 1.2s infinite alternate; }
   #houseSwitchBtn{ top: 115px; background: rgba(168,85,247,0.28); border-color: var(--purple); }
   #trainSwitchBtn{ top: 155px; background: rgba(56,189,248,0.28); border-color: var(--cyan); }
+  #raceSwitchBtn{ top: 195px; background: rgba(239,68,68,0.28); border-color: var(--danger); }
+  #damSwitchBtn{ top: 235px; background: rgba(14,165,233,0.28); border-color: var(--cyan); }
   @keyframes pulseGlow { from { box-shadow: 0 0 10px rgba(56,242,192,0.3); } to { box-shadow: 0 0 25px rgba(56,242,192,0.8); } }
+
+  #damHudPanel {
+    position: absolute; bottom: 80px; right: 18px; width: 230px;
+    background: var(--panel-bg); border: 1.5px solid var(--cyan); border-radius: 12px;
+    padding: 10px 14px; backdrop-filter: blur(12px); box-shadow: 0 0 25px rgba(56, 189, 248, 0.3);
+    display: none; flex-direction: column; gap: 6px; z-index: 32; pointer-events: auto;
+  }
+  #damHudPanel.show { display: flex; }
+  .dam-title { font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: var(--cyan); letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+  .dam-status-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+  .dam-meter-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 2px; }
+  .dam-water-fill { width: 65%; height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8); }
+  .dam-gate-btn { margin-top: 4px; padding: 6px; background: rgba(56, 189, 248, 0.2); border: 1.2px solid var(--cyan); color: #fff; font-family: 'Bebas Neue', sans-serif; font-size: 15px; border-radius: 6px; cursor: pointer; text-align: center; transition: all 0.2s; }
+  .dam-gate-btn:hover { background: rgba(56, 189, 248, 0.4); }
 
   #minimapWrap{
     position:absolute; top:12px; right:12px; background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:8px; padding:4px; backdrop-filter: blur(8px); pointer-events:auto; cursor:pointer;
   }
-  #minimapHeader{ font-size:7.5px; letter-spacing:0.15em; color:var(--text-dim); text-transform:uppercase; margin-bottom:2px; display:flex; justify-content:space-between; align-align:center; }
+  #minimapHeader{ font-size:7.5px; letter-spacing:0.15em; color:var(--text-dim); text-transform:uppercase; margin-bottom:2px; display:flex; justify-content:space-between; align-items:center; }
   #minimapHeader span.expandTag{ color:var(--cyan); font-weight:bold; }
   #minimap{ display:block; border-radius:6px; background:#060812; width:85px; height:85px; }
 
@@ -233,21 +301,94 @@
   .placeCard .pName{ font-family:'Bebas Neue',sans-serif; font-size:14px; color:#fff; }
   .placeCard .pTag{ font-size:9px; color:var(--text-dim); }
 
-  #mobileControls{ display:block !important; position:fixed; inset:0; z-index:25; pointer-events:none; }
-  .mbtn{
-    position:absolute; pointer-events:auto; border-radius:14px; background:rgba(8,12,24,0.82); border:1.5px solid rgba(56,242,192,0.5); display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-family:'Bebas Neue', sans-serif; letter-spacing:0.06em; backdrop-filter: blur(10px); user-select:none; box-shadow: 0 6px 20px rgba(0,0,0,0.5); transition: background 0.12s, transform 0.1s, border-color 0.12s; cursor: pointer;
+  #mobileControls {
+    display: none !important;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
   }
-  .mbtn:hover{ background:rgba(56,242,192,0.22); border-color:var(--accent); }
-  .mbtn:active{ background:rgba(56,242,192,0.45); border-color:var(--accent); transform:scale(0.92); }
 
-  #btnLeft{ left:14px; bottom:18px; width:62px; height:66px; font-size:24px; }
-  #btnRight{ left:84px; bottom:18px; width:62px; height:66px; font-size:24px; }
+  @media (pointer: coarse), (hover: none) {
+    body.is-touch #mobileControls {
+      display: block !important;
+    }
+  }
 
-  #btnDown{ right:14px; bottom:18px; width:62px; height:66px; border-color:rgba(255,74,74,0.6); }
-  #btnUp{ right:84px; bottom:18px; width:62px; height:66px; border-color:rgba(16,185,129,0.6); }
+  .mGroup {
+    position: absolute;
+    display: flex;
+    gap: 12px;
+    pointer-events: auto;
+  }
+  #mGroupLeft { left: 18px; bottom: 22px; }
+  #mGroupRightDrive { right: 18px; bottom: 22px; }
+  #mGroupRightHeli { right: 18px; bottom: 104px; }
 
-  #btnHeliDown{ right:14px; bottom:92px; width:62px; height:58px; border-color:rgba(56,189,248,0.6); }
-  #btnHeliUp{ right:84px; bottom:92px; width:62px; height:58px; border-color:rgba(245,158,11,0.6); }
+  .mbtn {
+    pointer-events: auto;
+    width: 68px;
+    height: 68px;
+    border-radius: 20px;
+    background: rgba(8, 12, 24, 0.65);
+    border: 1.5px solid rgba(56, 242, 192, 0.4);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.08em;
+    user-select: none;
+    transition: all 0.12s ease-out;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .mbtn:active, .mbtn.active {
+    background: rgba(56, 242, 192, 0.35);
+    border-color: var(--accent);
+    transform: scale(0.92);
+    box-shadow: 0 0 20px rgba(56, 242, 192, 0.6);
+  }
+
+  .mbtn-steer {
+    font-size: 26px;
+    border-color: rgba(56, 242, 192, 0.45);
+    color: var(--accent);
+  }
+
+  .mbtn-gas {
+    border-color: rgba(16, 185, 129, 0.6);
+    background: rgba(16, 185, 129, 0.18);
+  }
+  .mbtn-gas:active {
+    background: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.7);
+  }
+
+  .mbtn-brake {
+    border-color: rgba(255, 74, 74, 0.6);
+    background: rgba(255, 74, 74, 0.18);
+  }
+  .mbtn-brake:active {
+    background: rgba(255, 74, 74, 0.45);
+    box-shadow: 0 0 20px rgba(255, 74, 74, 0.7);
+  }
+
+  .mbtn-heli-up {
+    border-color: rgba(245, 158, 11, 0.6);
+    background: rgba(245, 158, 11, 0.15);
+    height: 56px;
+  }
+  .mbtn-heli-dn {
+    border-color: rgba(56, 189, 248, 0.6);
+    background: rgba(56, 189, 248, 0.15);
+    height: 56px;
+  }
 
   #toast{ position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); font-family:'Bebas Neue',sans-serif; font-size:19px; letter-spacing:0.12em; color:#fff; background:rgba(8,12,24,0.95); border:1px solid var(--gold); padding:8px 24px; border-radius:24px; opacity:0; pointer-events:none; z-index:40; text-align:center; }
 
@@ -264,6 +405,9 @@
     #msgBtn { top: 98px; left: 18px; font-size: 17px; padding: 8px 18px; border-radius: 22px; border-width: 1.5px; }
     #camBtn { top: 98px; left: 155px; font-size: 17px; padding: 8px 18px; border-radius: 22px; border-width: 1.5px; }
     #tvToggleBtn { top: 98px; left: 295px; font-size: 17px; padding: 8px 18px; border-radius: 22px; border-width: 1.5px; }
+    #hudToggleBtn { top: 18px; left: 375px; font-size: 16px; padding: 8px 16px; }
+    #fullscreenBtn { top: 18px; left: 450px; font-size: 16px; padding: 8px 16px; }
+
     #msgBadge { font-size: 11px; padding: 2px 7px; border-radius: 10px; }
     #msgPanel { top: 150px; left: 18px; width: 380px; max-height: 380px; padding: 14px; border-radius: 16px; }
     .panelHeader { font-size: 20px; padding-bottom: 6px; }
@@ -295,6 +439,8 @@
     #vehicleSwitchBtn { top: 98px; right: 18px; font-size: 17px; padding: 8px 18px; border-radius: 24px; border-width: 1.5px; }
     #houseSwitchBtn { top: 150px; right: 18px; font-size: 17px; padding: 8px 18px; border-radius: 24px; border-width: 1.5px; }
     #trainSwitchBtn { top: 202px; right: 18px; font-size: 17px; padding: 8px 18px; border-radius: 24px; border-width: 1.5px; }
+    #raceSwitchBtn { top: 254px; right: 18px; font-size: 17px; padding: 8px 18px; border-radius: 24px; border-width: 1.5px; }
+    #damSwitchBtn { top: 306px; right: 18px; font-size: 17px; padding: 8px 18px; border-radius: 24px; border-width: 1.5px; }
 
     #minimapWrap { top: 18px; right: 18px; padding: 6px; border-radius: 10px; border-width: 1.5px; }
     #minimapHeader { font-size: 10px; margin-bottom: 4px; }
@@ -307,25 +453,6 @@
     #gearBar { height: 6px; margin-top: 6px; border-radius: 3px; }
     #surfaceBadge { font-size: 11px; margin-top: 5px; }
 
-    #btnLeft { left: 24px; bottom: 28px; width: 78px; height: 82px; font-size: 30px; border-radius: 18px; }
-    #btnRight { left: 112px; bottom: 28px; width: 78px; height: 82px; font-size: 30px; border-radius: 18px; }
-
-    #btnDown { right: 24px; bottom: 28px; width: 78px; height: 82px; border-radius: 18px; }
-    #btnDown span:first-child { font-size: 22px; }
-    #btnDown span:last-child { font-size: 10px; }
-
-    #btnUp { right: 112px; bottom: 28px; width: 78px; height: 82px; border-radius: 18px; }
-    #btnUp span:first-child { font-size: 22px; }
-    #btnUp span:last-child { font-size: 10px; }
-
-    #btnHeliDown { right: 24px; bottom: 120px; width: 78px; height: 70px; border-radius: 18px; }
-    #btnHeliDown span:first-child { font-size: 18px; }
-    #btnHeliDown span:last-child { font-size: 9px; }
-
-    #btnHeliUp { right: 112px; bottom: 120px; width: 78px; height: 70px; border-radius: 18px; }
-    #btnHeliUp span:first-child { font-size: 18px; }
-    #btnHeliUp span:last-child { font-size: 9px; }
-
     #toast { font-size: 24px; padding: 12px 34px; border-radius: 30px; }
   }
 </style>
@@ -337,7 +464,7 @@
 <div id="titleScreen">
   <div class="eyebrow">Interactive Driving & Flying Dispatch Simulation</div>
   <h1 class="gameTitle">NIGHT<span>DRIVE</span></h1>
-  <div class="subline">Experience high speed driving (250 km/h raceway) & flying with mountain train bridges, tunnel skybridge, 3D home TV display, outdoor YouTube TVs, raceway city wall gateway, and dynamic city fog barrier.</div>
+  <div class="subline">Experience high speed driving (250 km/h raceway), flying with mountain train bridges, long village canal, hydroelectric water dam with Anime.js animated sluice gates, tunnel skybridge, 3D home TV display, outdoor YouTube TVs, and dynamic city fog barrier.</div>
 
   <div id="mpTitleBox">
     <div style="font-size:12px;letter-spacing:0.15em;color:var(--cyan);font-weight:bold;">LOCAL WI-FI MULTIPLAYER</div>
@@ -362,7 +489,6 @@
 <div id="css3d-wrap"></div>
 
 <div id="hud">
-  <!-- ADSTERRA NATIVE BANNER CONTAINER -->
   <div id="adsterraBannerWrap">
     <div id="container-0f3679f1682279296d713456f79546eb"></div>
   </div>
@@ -375,6 +501,9 @@
   <button id="msgBtn">💬 RIDES <span id="msgBadge">0</span></button>
   <button id="camBtn">🎥 CAM (3RD)</button>
   <button id="tvToggleBtn">📺 TOGGLE TV</button>
+  
+  <button id="hudToggleBtn">👁️ UI</button>
+  <button id="fullscreenBtn">⛶ FULL</button>
 
   <div id="msgPanel">
     <div class="panelHeader"><span>DISPATCH LOG</span> <button class="closeBtn" id="closeMsgBtn">✕</button></div>
@@ -410,6 +539,16 @@
   <button id="vehicleSwitchBtn"><span id="switchIcon">🚪 🚁</span> <span id="switchText">ENTER HELI</span></button>
   <button id="houseSwitchBtn"><span id="houseIcon">🚪 🏠</span> <span id="houseText">ENTER HOME ($2,000)</span></button>
   <button id="trainSwitchBtn"><span id="trainIcon">🚪 🚆</span> <span id="trainText">ENTER TRAIN STATION</span></button>
+  <button id="raceSwitchBtn"><span id="raceIcon">🏎️ 🏁</span> <span id="raceText">JOIN RACE</span></button>
+  <button id="damSwitchBtn"><span id="damIcon">🌊 ⚙️</span> <span id="damText">DAM CONTROLS</span></button>
+
+  <div id="damHudPanel">
+    <div class="dam-title"><span>HYDRO DAM STATION</span> <span id="damStatusTag" style="color:var(--cyan);font-size:12px;">ACTIVE</span></div>
+    <div class="dam-status-row"><span>RESERVOIR WATER LEVEL</span> <b id="damWaterVal" style="color:var(--cyan)">65%</b></div>
+    <div class="dam-meter-bg"><div class="dam-water-fill"></div></div>
+    <div class="dam-status-row" style="margin-top:4px;"><span>SLUICE GATES STATE</span> <b id="damGateVal" style="color:var(--gold)">CLOSED</b></div>
+    <button class="dam-gate-btn" id="toggleDamGatesBtn">TOGGLE SLUICE GATES (ANIME.JS)</button>
+  </div>
 
   <div id="minimapWrap">
     <div id="minimapHeader"><span>MAP</span> <span class="expandTag">EXPAND</span></div>
@@ -444,12 +583,20 @@
 <div id="crashFlash"></div>
 
 <div id="mobileControls">
-  <div class="mbtn" id="btnLeft">◀</div>
-  <div class="mbtn" id="btnRight">▶</div>
-  <div class="mbtn" id="btnUp"><span style="font-size:16px;">▲</span><span style="font-size:8px;margin-top:1px;color:#10b981;font-weight:bold;">GAS</span></div>
-  <div class="mbtn" id="btnDown"><span style="font-size:16px;">▼</span><span style="font-size:8px;margin-top:1px;color:#ff4a4a;font-weight:bold;">BRAKE</span></div>
-  <div class="mbtn" id="btnHeliDown"><span style="font-size:13px;">🚁▼</span><span style="font-size:7px;margin-top:1px;color:#38bdf8;font-weight:bold;">PULL DN</span></div>
-  <div class="mbtn" id="btnHeliUp"><span style="font-size:13px;">🚁▲</span><span style="font-size:7px;margin-top:1px;color:#f59e0b;font-weight:bold;">PULL UP</span></div>
+  <div class="mGroup" id="mGroupLeft">
+    <div class="mbtn mbtn-steer" id="btnLeft">◀</div>
+    <div class="mbtn mbtn-steer" id="btnRight">▶</div>
+  </div>
+
+  <div class="mGroup" id="mGroupRightDrive">
+    <div class="mbtn mbtn-gas" id="btnUp"><span style="font-size:18px;">▲</span><span style="font-size:8px;margin-top:1px;color:#10b981;font-weight:bold;">GAS</span></div>
+    <div class="mbtn mbtn-brake" id="btnDown"><span style="font-size:18px;">▼</span><span style="font-size:8px;margin-top:1px;color:#ff4a4a;font-weight:bold;">BRAKE</span></div>
+  </div>
+
+  <div class="mGroup" id="mGroupRightHeli">
+    <div class="mbtn mbtn-heli-up" id="btnHeliUp"><span style="font-size:14px;">🚁▲</span><span style="font-size:7px;margin-top:1px;color:#f59e0b;font-weight:bold;">RISE</span></div>
+    <div class="mbtn mbtn-heli-dn" id="btnHeliDown"><span style="font-size:14px;">🚁▼</span><span style="font-size:7px;margin-top:1px;color:#38bdf8;font-weight:bold;">DROP</span></div>
+  </div>
 </div>
 
 <script>
@@ -471,9 +618,10 @@ let domSpeedNum, domGearFill, domSurfaceBadge, domClockTime, domDistrictName, do
 let domCabObjective, domCabFare, domCabTotal, domCabStatusTag, domMsgBtn, domMsgBadge, domMsgPanel, domMsgList, domCloseMsgBtn;
 let domBanner, domBannerAvatar, domBannerName, domBannerMsg, domBannerFare, domBannerAccept, domBannerDecline;
 let domMinimapWrap, domFullMapModal, domCloseMapBtn, domPlacesList, domFullMapCanvas, fullMapCtx;
-let domHouseSwitchBtn, domHouseIcon, domHouseText, domCamBtn, domTvToggleBtn, domTrainSwitchBtn, domTrainIcon, domTrainText;
+let domHouseSwitchBtn, domHouseIcon, domHouseText, domCamBtn, domTvToggleBtn, domTrainSwitchBtn, domTrainIcon, domTrainText, domRaceSwitchBtn, domRaceIcon, domRaceText;
+let domDamSwitchBtn, domDamIcon, domDamText, domDamHudPanel, domToggleDamGatesBtn, domDamWaterVal, domDamGateVal;
+let domHudToggleBtn, domFullscreenBtn, domHudContainer;
 
-/* PEERJS LOCAL WI-FI MULTIPLAYER GLOBALS */
 let peer = null;
 let connections = {};
 let hostConn = null;
@@ -483,6 +631,7 @@ let roomCode = null;
 let remotePlayers = {};
 
 function cacheDomElements(){
+  domHudContainer = document.getElementById('hud');
   domSpeedNum = document.getElementById('speedNum'); domGearFill = document.getElementById('gearFill');
   domSurfaceBadge = document.getElementById('surfaceBadge'); domClockTime = document.getElementById('clockTime');
   domDistrictName = document.getElementById('districtName'); domWantedBox = document.getElementById('wantedBox');
@@ -510,6 +659,21 @@ function cacheDomElements(){
   domTrainIcon = document.getElementById('trainIcon');
   domTrainText = document.getElementById('trainText');
 
+  domRaceSwitchBtn = document.getElementById('raceSwitchBtn');
+  domRaceIcon = document.getElementById('raceIcon');
+  domRaceText = document.getElementById('raceText');
+
+  domDamSwitchBtn = document.getElementById('damSwitchBtn');
+  domDamIcon = document.getElementById('damIcon');
+  domDamText = document.getElementById('damText');
+  domDamHudPanel = document.getElementById('damHudPanel');
+  domToggleDamGatesBtn = document.getElementById('toggleDamGatesBtn');
+  domDamWaterVal = document.getElementById('damWaterVal');
+  domDamGateVal = document.getElementById('damGateVal');
+
+  domHudToggleBtn = document.getElementById('hudToggleBtn');
+  domFullscreenBtn = document.getElementById('fullscreenBtn');
+
   domMinimapWrap = document.getElementById('minimapWrap');
   domFullMapModal = document.getElementById('fullMapModal');
   domCloseMapBtn = document.getElementById('closeMapBtn');
@@ -529,7 +693,6 @@ const tempVecForward = new THREE.Vector3(0,0,1);
 const tempQuat = new THREE.Quaternion();
 const tempMatrix = new THREE.Matrix4();
 
-/* WIDER ROADS FOR HIGH SPEED TAXI DUTY */
 const WORLD = { blocks: 21, blockSize: 42, roadWidth: 22, laneOffset: 5.5 };
 WORLD.cell = WORLD.blockSize + WORLD.roadWidth; WORLD.half = (WORLD.blocks * WORLD.cell) / 2;
 
@@ -539,7 +702,6 @@ let crashFlashTimer = 0; let metroTrainMesh = null;
 let trafficSignalMeshes = [];
 let busStopsList = [];
 
-/* STATIC INSTANCED MESH FOR MAXIMUM GPU PERFORMANCE */
 let cityInstancedMesh = null;
 let buildingTransforms = [];
 let buildingInstanceCount = 0;
@@ -547,24 +709,35 @@ let buildingInstanceCount = 0;
 let allTreeTransforms = [];
 let lodFrameCounter = 0;
 
-/* 100M NEARBY DETAILED BUILDINGS OVERLAY GROUP */
 let detailedBuildingGroup = null;
 let activeDetailedBuildings = new Map();
 
-/* DYNAMIC DISTRICT ADVERTISING SCREEN MATERIALS */
 let downtownAdCanvas, downtownAdCtx, downtownAdTexture, downtownAdMaterial;
 let financeAdCanvas, financeAdCtx, financeAdTexture, financeAdMaterial;
 
-/* INDILA - LOVE STORY VIDEO CANVAS & TEXTURE SYSTEM */
 let loveStoryCanvas, loveStoryCtx, loveStoryTexture;
 
-/* CSS3D EMBEDDED MEDIA DISPLAY FOR LUXURY RESIDENCE & OUTDOOR TVS */
 let houseTvCssObject = null;
 let beachTvCssObject = null;
 let mountainTvCssObject = null;
 
+let houseVideoElem = null, beachVideoElem = null, mountainVideoElem = null;
+
 let twinAdCanvas, twinAdCtx, twinAdTexture;
 let lastCanvasUpdateTime = 0;
+
+/* GROUND-LEVEL PHOTO AD DISPLAY SYSTEM */
+let groundAdCanvases = [];
+let groundAdTextures = [];
+
+const GROUND_AD_POSITIONS = [
+  { x: -35, z: -60, rotY: 0, name: "Downtown Core Sidewalk", title: "VERTEX LUXURY WATCHES" },
+  { x: -210, z: -190, rotY: Math.PI / 4, name: "Financial District Plaza", title: "QUANTUM AI CLOUD CON" },
+  { x: 210, z: 190, rotY: -Math.PI / 4, name: "Media Zone Promenade", title: "AURA ELECTRIC HYPERCAR" },
+  { x: -120, z: -92, rotY: 0, name: "Sheikh Zayed Highway Walkway", title: "NEON ENERGY DRINK" },
+  { x: -100, z: -840, rotY: Math.PI / 2, name: "Suburban Village Park", title: "HORIZON RESORT & SPA" },
+  { x: -190, z: 180, rotY: Math.PI, name: "Westside Residential Strip", title: "ELEVATE METROPOLIS FASHION" }
+];
 
 let MOUNTAIN_TRAIN_PATH = null;
 let mountainTrainMesh = null;
@@ -577,7 +750,25 @@ let stationDoorMesh = null;
 const STATION_POS = new THREE.Vector3(0, 0.0, -880);
 const STATION_DOOR_POS = new THREE.Vector3(0, 0.0, -862);
 
-/* RACE TRACK 300M EAST OF CITY BORDER */
+/* HYDROELECTRIC WATER DAM */
+const HYDRO_DAM = {
+  cx: -WORLD.half - 300,
+  cz: 0,
+  wallHeight: 32.0,
+  wallLength: 160.0,
+  wallThickness: 12.0,
+  roadY: 32.0,
+  lakeWaterY: 24.0
+};
+let damGatesList = [];
+let spillwayWaterMesh = null;
+let reservoirLakeMesh = null;
+let oceanWaterMesh = null;
+let waterFallStreams = [];
+let damMistParticles = null;
+let damParticleGeo = null;
+const damGateState = { open: false, progress: 0.0 };
+
 const RACE_TRACK = {
   cx: WORLD.half + 300,
   cz: 0,
@@ -589,16 +780,35 @@ let raceTrackSamplePoints = [];
 let raceTrackCurve = null;
 let aiRaceCars = [];
 
-/* FOG BARRIER MESH BETWEEN CITY AND RACEWAY */
+const raceState = {
+  active: false,
+  countdown: 0,
+  countdownTimer: 0,
+  lapStarted: false,
+  playerProgress: 0,
+  playerLap: 0,
+  totalLaps: 1,
+  startFinishT: 0.0,
+  rank: 1,
+  winnerAwarded: false
+};
+
 let fogBarrierGroup = null;
 
-/* SUBURBAN HOUSE ROW EXACTLY 150M NORTH OF CITY BORDER */
 const SUBURBAN_ZONE = {
-  rowZ: -WORLD.half - 150, // -822m
-  roadZ: -WORLD.half - 136, // -808m
+  rowZ: -WORLD.half - 150,
+  roadZ: -WORLD.half - 136,
   startX: -320,
   endX: 240,
   count: 8
+};
+
+const VILLAGE_CANAL = {
+  startX: -580,
+  endX: 480,
+  cz: -858,
+  width: 12.0,
+  waterY: 0.35
 };
 
 const HOUSE_DOORS = [];
@@ -655,12 +865,14 @@ let villageBridgePoints = [];
 const OCEAN_BRIDGE = { deckHeight: 11.0, halfWidth: 8.0, pylonHeight: 40.0 };
 
 const DISTRICT_MAP_LABELS = [
+  { name: 'HYDROELECTRIC WATER DAM', x: HYDRO_DAM.cx, z: HYDRO_DAM.cz, color: '#0ea5e9' },
   { name: 'FLYOVER UNDERPASS', x: 0, z: 27.5, color: '#38f2c0' },
   { name: 'HASHIQ BEACH SIGN', x: -30, z: COAST.beachStartZ + 25, color: '#ec4899' },
   { name: 'BEACH OUTDOOR TV', x: -85, z: COAST.beachStartZ + 25, color: '#38bdf8' },
   { name: 'BEACH HELIPAD', x: GROUND_HELIPAD.x, z: GROUND_HELIPAD.z, color: '#f59e0b' },
   { name: 'RACEWAY CITY GATEWAY', x: WORLD.half + 40, z: 0, color: '#f59e0b' },
   { name: 'MOUNTAIN LUXURY VILLAGE', x: 0, z: SUBURBAN_ZONE.rowZ, color: '#a855f7' },
+  { name: 'SUBURBAN VILLAGE LONG CANAL', x: 0, z: VILLAGE_CANAL.cz, color: '#38bdf8' },
   { name: 'MOUNTAIN OUTDOOR TV', x: 120, z: -1020, color: '#f59e0b' },
   { name: 'NIGHT DRIVE INTERNATIONAL RACEWAY', x: RACE_TRACK.cx, z: RACE_TRACK.cz, color: '#ef4444' },
   { name: 'GRAND MOUNTAIN RAILWAY STATION', x: 0, z: -880, color: '#38bdf8' },
@@ -726,22 +938,195 @@ const poleMat = new THREE.MeshStandardMaterial({ color:0x2a2c30, roughness:0.6, 
 
 let globalAtlasTexture, globalAtlasMaterial;
 
-/* HELPER FUNCTION TO CREATE CSS3D YOUTUBE TV OBJECTS */
-function createCssTvObject(elementId, iframeSrc, badgeText, x, y, z, rotY, width, height) {
+/* PROCEDURAL WATER ENGINE & SHADERS */
+function generateProceduralNormalMap() {
+  const size = 512;
+  const canvasMap = document.createElement('canvas');
+  canvasMap.width = canvasMap.height = size;
+  const ctx = canvasMap.getContext('2d');
+  const imgData = ctx.createImageData(size, size);
+  
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const u = (x / size) * Math.PI * 8.0;
+      const v = (y / size) * Math.PI * 8.0;
+      
+      const n1 = Math.sin(u * 1.5 + v * 0.8) * 0.4 + Math.cos(v * 2.2 - u * 0.6) * 0.3;
+      const n2 = Math.sin(u * 3.8 - v * 2.1) * 0.2 + Math.cos(u * 1.2 + v * 4.4) * 0.15;
+      const nx = n1 + n2;
+      const ny = Math.cos(u * 1.8 - v * 1.4) * 0.4 + Math.sin(v * 3.1 + u * 1.9) * 0.2;
+
+      imgData.data[i]     = Math.floor(((nx * 0.5) + 0.5) * 255);
+      imgData.data[i + 1] = Math.floor(((ny * 0.5) + 0.5) * 255);
+      imgData.data[i + 2] = 255;
+      imgData.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  const texture = new THREE.CanvasTexture(canvasMap);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
+
+const waterNormalMap = generateProceduralNormalMap();
+waterNormalMap.repeat.set(16, 16);
+
+function createReferenceWaterMaterial(options = {}) {
+  const isSpillway = options.isSpillway || false;
+  const uniforms = {
+    uTime: { value: 0 },
+    uSpeed: { value: options.speed || 1.0 },
+    uWaveScale: { value: options.waveScale || 1.0 },
+    uNormalMap: { value: waterNormalMap },
+    uSunDirection: { value: new THREE.Vector3(0.4, 0.8, 0.3).normalize() },
+    uDeepColor: { value: options.waterColor || new THREE.Color(0x011326) },
+    uShallowColor: { value: options.shallowColor || new THREE.Color(0x0a5269) },
+    uSunColor: { value: new THREE.Color(0xfff7e8) },
+    uSkyColor: { value: new THREE.Color(0x5291bf) },
+    uIsSpillway: { value: isSpillway ? 1.0 : 0.0 }
+  };
+
+  return new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: `
+      uniform float uTime;
+      uniform float uSpeed;
+      uniform float uWaveScale;
+      uniform float uIsSpillway;
+
+      varying vec2 vUv;
+      varying vec3 vWorldPosition;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+
+      vec3 calcGerstnerWave(vec4 wave, vec3 p, inout vec3 tangent, inout vec3 binormal) {
+        float steepness = wave.z;
+        float wavelength = wave.w;
+        float k = 6.2831853 / wavelength;
+        float c = sqrt(9.8 / k);
+        vec2 d = normalize(wave.xy);
+        float f = k * (dot(d, p.xz) - c * uTime * 0.45 * uSpeed);
+        float a = steepness / k;
+
+        tangent += vec3(-d.x * d.x * (steepness * sin(f)), d.x * (steepness * cos(f)), -d.x * d.y * (steepness * sin(f)));
+        binormal += vec3(-d.x * d.y * (steepness * sin(f)), d.y * (steepness * cos(f)), -d.y * d.y * (steepness * sin(f)));
+        return vec3(d.x * (a * cos(f)), a * sin(f), d.y * (a * cos(f)));
+      }
+
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        vec3 tangent = vec3(1.0, 0.0, 0.0);
+        vec3 binormal = vec3(0.0, 0.0, 1.0);
+
+        if (uIsSpillway > 0.5) {
+          float chute = sin(p.y * 0.35 - uTime * 6.5 * uSpeed) * 0.45;
+          p.z += chute * uWaveScale;
+          vNormal = normalMatrix * vec3(0.0, 0.4, 0.9);
+        } else {
+          p += calcGerstnerWave(vec4(1.0, 0.15, 0.15, 34.0), position, tangent, binormal) * uWaveScale;
+          p += calcGerstnerWave(vec4(0.3, 0.9, 0.10, 16.0), position, tangent, binormal) * uWaveScale;
+          p += calcGerstnerWave(vec4(-0.6, 0.4, 0.06, 8.0), position, tangent, binormal) * uWaveScale;
+          vec3 n = normalize(cross(binormal, tangent));
+          vNormal = normalMatrix * n;
+        }
+
+        vec4 worldPos = modelMatrix * vec4(p, 1.0);
+        vWorldPosition = worldPos.xyz;
+        vViewDir = cameraPosition - worldPos.xyz;
+        gl_Position = projectionMatrix * viewMatrix * worldPos;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform float uSpeed;
+      uniform sampler2D uNormalMap;
+      uniform vec3 uSunDirection;
+      uniform vec3 uDeepColor;
+      uniform vec3 uShallowColor;
+      uniform vec3 uSunColor;
+      uniform vec3 uSkyColor;
+      uniform float uIsSpillway;
+
+      varying vec2 vUv;
+      varying vec3 vWorldPosition;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+
+      void main() {
+        vec3 V = normalize(vViewDir);
+        vec3 L = normalize(uSunDirection);
+
+        vec2 flow1 = vUv * 18.0 + vec2(uTime * 0.03 * uSpeed, uTime * 0.02 * uSpeed);
+        vec2 flow2 = vUv * 36.0 - vec2(uTime * 0.02 * uSpeed, -uTime * 0.04 * uSpeed);
+        if (uIsSpillway > 0.5) {
+          flow1 = vec2(vUv.x * 4.0, vUv.y * 12.0 - uTime * 2.8 * uSpeed);
+          flow2 = vec2(vUv.x * 8.0 + 0.4, vUv.y * 24.0 - uTime * 4.2 * uSpeed);
+        }
+
+        vec3 tN1 = texture2D(uNormalMap, flow1).rgb * 2.0 - 1.0;
+        vec3 tN2 = texture2D(uNormalMap, flow2).rgb * 2.0 - 1.0;
+        vec3 N = normalize(vNormal + (tN1 + tN2) * 0.38);
+
+        float NdotV = max(dot(N, V), 0.0);
+        float fresnel = 0.02 + 0.98 * pow(1.0 - NdotV, 5.0);
+
+        vec3 H = normalize(L + V);
+        float NdotH = max(dot(N, H), 0.0);
+        float specGlint = pow(NdotH, 320.0) * 6.5;
+        float specBroad = pow(NdotH, 20.0) * 0.6;
+        vec3 sunHighlight = uSunColor * (specGlint + specBroad);
+
+        vec3 body = mix(uDeepColor, uShallowColor, NdotV * 0.75);
+        vec3 skyRefl = mix(uSkyColor * 0.6, uSkyColor * 1.4, pow(1.0 - N.y, 2.0));
+        vec3 finalColor = mix(body, skyRefl, fresnel) + sunHighlight;
+
+        if (uIsSpillway > 0.5) {
+          float foamNoise = texture2D(uNormalMap, flow2 * 1.5).r;
+          float churn = smoothstep(0.35, 0.75, foamNoise);
+          finalColor = mix(finalColor, vec3(0.95, 0.98, 1.0), churn * 0.85);
+        }
+
+        gl_FragColor = vec4(finalColor, 0.96);
+      }
+    `,
+    transparent: true,
+    depthWrite: true,
+    side: THREE.DoubleSide
+  });
+}
+
+let oceanWaterMaterial = null;
+let damLakeWaterMaterial = null;
+let damSpillwayWaterMaterial = null;
+
+function createHtmlVideo(id, src) {
+  const v = document.createElement('video');
+  v.id = id;
+  v.src = src;
+  v.loop = true;
+  v.muted = true;
+  v.playsInline = true;
+  v.setAttribute('playsinline', '');
+  v.setAttribute('webkit-playsinline', '');
+  v.autoplay = true;
+  v.style.width = '100%';
+  v.style.height = '100%';
+  v.style.objectFit = 'cover';
+  v.play().catch(()=>{});
+  return v;
+}
+
+function createCssVideoTvObject(elementId, videoSrc, badgeText, x, y, z, rotY, width, height) {
   const div = document.createElement('div');
   div.id = elementId;
   div.className = 'outdoor-tv-container';
   div.style.width = '720px';
   div.style.height = '400px';
 
-  const iframe = document.createElement('iframe');
-  iframe.src = iframeSrc;
-  iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
-  iframe.setAttribute('allowfullscreen', 'true');
-  iframe.style.width = '100%';
-  iframe.style.height = '100%';
-  iframe.style.border = 'none';
-  div.appendChild(iframe);
+  const video = createHtmlVideo(elementId + '-media', videoSrc);
+  div.appendChild(video);
 
   if(badgeText) {
     const badge = document.createElement('div');
@@ -756,10 +1141,9 @@ function createCssTvObject(elementId, iframeSrc, badgeText, x, y, z, rotY, width
   cssObj.rotation.y = rotY;
 
   if (cssScene) cssScene.add(cssObj);
-  return cssObj;
+  return { cssObj, video };
 }
 
-/* INITIALIZE CSS3D RENDERER WITH HOUSE & OUTDOOR YOUTUBE TV DISPLAYS */
 function initCSS3DRenderer() {
   if (typeof THREE === 'undefined' || typeof THREE.CSS3DRenderer === 'undefined') {
     console.warn("CSS3DRenderer not loaded.");
@@ -777,16 +1161,12 @@ function initCSS3DRenderer() {
     const wrap = document.getElementById('css3d-wrap');
     if (wrap) wrap.appendChild(cssRenderer.domElement);
 
-    const youtubeUrl = 'https://www.youtube.com/embed/DF3XjEhJ40Y?enablejsapi=1&autoplay=1&mute=1&controls=1&rel=0&playsinline=1';
+    const videoSrc = 'video/abc.mp4';
 
-    // 1. House TV CSS3D Object
     const houseDiv = document.createElement('div');
     houseDiv.id = 'local-tv-container';
-    const houseIframe = document.createElement('iframe');
-    houseIframe.src = youtubeUrl;
-    houseIframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
-    houseIframe.setAttribute('allowfullscreen', 'true');
-    houseDiv.appendChild(houseIframe);
+    houseVideoElem = createHtmlVideo('houseVideoMedia', videoSrc);
+    houseDiv.appendChild(houseVideoElem);
 
     houseTvCssObject = new THREE.CSS3DObject(houseDiv);
     houseTvCssObject.scale.set(7.2 / 720, 4.0 / 400, 1.0);
@@ -794,32 +1174,33 @@ function initCSS3DRenderer() {
     houseTvCssObject.rotation.y = 0;
     cssScene.add(houseTvCssObject);
 
-    // 2. Outdoor Beach TV (Hashiq Beach)
-    beachTvCssObject = createCssTvObject(
+    const beachTvRes = createCssVideoTvObject(
       'beach-tv-container',
-      youtubeUrl,
+      videoSrc,
       'HASHIQ BEACH LIVE STREAM 📺',
       -85.0, 10.0, COAST.beachStartZ + 25,
       Math.PI,
       18.0, 10.0
     );
+    beachTvCssObject = beachTvRes.cssObj;
+    beachVideoElem = beachTvRes.video;
 
-    // 3. Outdoor Mountain TV (100m North of Suburban Village)
-    mountainTvCssObject = createCssTvObject(
+    const mtnTvRes = createCssVideoTvObject(
       'mountain-tv-container',
-      youtubeUrl,
+      videoSrc,
       'MOUNTAIN PEAK CINEMA 📺',
       120.0, 22.0, -1020.0,
       Math.PI,
       36.0, 20.25
     );
+    mountainTvCssObject = mtnTvRes.cssObj;
+    mountainVideoElem = mtnTvRes.video;
 
   } catch(e) {
     console.warn("CSS3D Setup Warning:", e);
   }
 }
 
-/* 3D FRAME BUILDERS FOR OUTDOOR TVS & RACEWAY CITY WALL GATEWAY */
 function buildBeachTVFrame() {
   const group = new THREE.Group();
   const bx = -85.0, by = 10.0, bz = COAST.beachStartZ + 25;
@@ -854,6 +1235,7 @@ function buildBeachTVFrame() {
   const box = { minX: bx - 10, maxX: bx + 10, minZ: bz - 2, maxZ: bz + 2, minY: 0, maxY: by + 6, type: 'Hashiq Beach TV Tower' };
   buildingBoxes.push(box); registerCollider(box);
 }
+
 function buildMountainTVFrame() {
   const group = new THREE.Group();
   const mx = 120.0, my = 22.0, mz = -1020.0;
@@ -888,9 +1270,8 @@ function buildMountainTVFrame() {
   buildingBoxes.push(box); registerCollider(box);
 }
 
-/* PERIMETER WALL WITH GRAND GATEWAY ENTRANCE BETWEEN CITY AND RACEWAY */
 function buildRacewayGatewayWall() {
-  const wallX = WORLD.half + 40; // X = 712m
+  const wallX = WORLD.half + 40;
   const stoneMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, metalness: 0.3 });
   const darkSteel = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.85 });
   const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, metalness: 0.9, emissive: 0xb45309, emissiveIntensity: 0.4 });
@@ -901,7 +1282,6 @@ function buildRacewayGatewayWall() {
   const wallHeight = 12.0;
   const wallThickness = 3.5;
 
-  // 1. North Wall Segment (Z from -450 to -16m)
   const northLen = 434;
   const northWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, northLen), stoneMat);
   northWall.position.set(wallX, wallHeight / 2, -16 - northLen / 2);
@@ -910,7 +1290,6 @@ function buildRacewayGatewayWall() {
   const boxNorth = { minX: wallX - wallThickness/2, maxX: wallX + wallThickness/2, minZ: -450, maxZ: -16, minY: 0, maxY: wallHeight, type: 'Raceway Perimeter Wall North' };
   buildingBoxes.push(boxNorth); registerCollider(boxNorth);
 
-  // 2. South Wall Segment (Z from +16 to +450m)
   const southLen = 434;
   const southWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, southLen), stoneMat);
   southWall.position.set(wallX, wallHeight / 2, 16 + southLen / 2);
@@ -919,7 +1298,6 @@ function buildRacewayGatewayWall() {
   const boxSouth = { minX: wallX - wallThickness/2, maxX: wallX + wallThickness/2, minZ: 16, maxZ: 450, minY: 0, maxY: wallHeight, type: 'Raceway Perimeter Wall South' };
   buildingBoxes.push(boxSouth); registerCollider(boxSouth);
 
-  // Watchtowers & Decorative Pillars along the wall
   for (let z = -420; z <= 420; z += 60) {
     if (Math.abs(z) < 30) continue;
     const pillar = new THREE.Mesh(new THREE.BoxGeometry(wallThickness + 1.8, wallHeight + 3.0, wallThickness + 1.8), darkSteel);
@@ -931,10 +1309,8 @@ function buildRacewayGatewayWall() {
     scene.add(capLight);
   }
 
-  // 3. GRAND GATEWAY ENTRANCE ARCHWAY (Spanning Z = -16m to +16m)
   const gateGroup = new THREE.Group();
 
-  // Left Gate Tower (North Side, Z = -16.0)
   const towerL = new THREE.Mesh(new THREE.BoxGeometry(6.0, 18.0, 6.0), darkSteel);
   towerL.position.set(0, 9.0, -16.0);
   gateGroup.add(towerL);
@@ -946,7 +1322,6 @@ function buildRacewayGatewayWall() {
   const boxTowerL = { minX: wallX - 3.0, maxX: wallX + 3.0, minZ: -19.0, maxZ: -13.0, minY: 0, maxY: 18.0, type: 'Raceway Gate Tower North' };
   buildingBoxes.push(boxTowerL); registerCollider(boxTowerL);
 
-  // Right Gate Tower (South Side, Z = +16.0)
   const towerR = new THREE.Mesh(new THREE.BoxGeometry(6.0, 18.0, 6.0), darkSteel);
   towerR.position.set(0, 9.0, 16.0);
   gateGroup.add(towerR);
@@ -958,7 +1333,6 @@ function buildRacewayGatewayWall() {
   const boxTowerR = { minX: wallX - 3.0, maxX: wallX + 3.0, minZ: 13.0, maxZ: 19.0, minY: 0, maxY: 18.0, type: 'Raceway Gate Tower South' };
   buildingBoxes.push(boxTowerR); registerCollider(boxTowerR);
 
-  // Overhead Bridge Structure
   const overheadBridge = new THREE.Mesh(new THREE.BoxGeometry(5.2, 5.0, 32.0), darkSteel);
   overheadBridge.position.set(0, 15.5, 0);
   gateGroup.add(overheadBridge);
@@ -967,7 +1341,6 @@ function buildRacewayGatewayWall() {
   archTrimBottom.position.set(0, 13.1, 0);
   gateGroup.add(archTrimBottom);
 
-  // Center Signboard Display
   const signBoardCanvas = document.createElement('canvas');
   signBoardCanvas.width = 512; signBoardCanvas.height = 128;
   const sCtx = signBoardCanvas.getContext('2d');
@@ -991,7 +1364,6 @@ function buildRacewayGatewayWall() {
   signBack.rotation.y = Math.PI / 2;
   gateGroup.add(signBack);
 
-  // Center Median Checkpoint Island
   const centerIsland = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.4, 2.4), darkSteel);
   centerIsland.position.set(0, 0.2, 0);
   gateGroup.add(centerIsland);
@@ -1000,7 +1372,6 @@ function buildRacewayGatewayWall() {
   boothPillar.position.set(0, 2.1, 0);
   gateGroup.add(boothPillar);
 
-  // Green Open Lane Signals
   [-7.0, 7.0].forEach(lz => {
     const signalGreen = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), greenNeonMat);
     signalGreen.position.set(-2.7, 12.5, lz);
@@ -1011,7 +1382,6 @@ function buildRacewayGatewayWall() {
     gateGroup.add(signalGreenBack);
   });
 
-  // Tower Top Beacons
   const beaconL = new THREE.Mesh(new THREE.SphereGeometry(0.8, 10, 10), cyanNeonMat);
   beaconL.position.set(0, 19.0, -16.0);
   gateGroup.add(beaconL);
@@ -1024,7 +1394,6 @@ function buildRacewayGatewayWall() {
   scene.add(gateGroup);
 }
 
-/* INDILA - LOVE STORY MUSIC VIDEO CANVAS RENDERER FOR SEATBACK SCREENS */
 function initLoveStoryVideoCanvas() {
   loveStoryCanvas = document.createElement('canvas');
   loveStoryCanvas.width = 512; loveStoryCanvas.height = 288;
@@ -1214,6 +1583,141 @@ function updateDistrictAdCanvas(timeSec) {
   }
 }
 
+/* GROUND-LEVEL PHOTO AD DISPLAYS SETUP & PROCEDURAL DRAWING */
+function initGroundPhotoAds() {
+  groundAdCanvases = [];
+  groundAdTextures = [];
+
+  const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, metalness: 0.3 });
+  const postMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.1, metalness: 0.95 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.85 });
+  const topLightMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 2.5 });
+
+  GROUND_AD_POSITIONS.forEach((adInfo, idx) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512; canvas.height = 320;
+    const ctx = canvas.getContext('2d');
+    const texture = new THREE.CanvasTexture(canvas);
+
+    groundAdCanvases.push(canvas);
+    groundAdTextures.push(texture);
+
+    drawGroundAdPhoto(idx, ctx, 512, 320, 0);
+
+    const screenMat = new THREE.MeshBasicMaterial({ map: texture });
+
+    const displayGroup = new THREE.Group();
+    const terrainY = getTerrainHeight(adInfo.x, adInfo.z);
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.4, 1.4), baseMat);
+    base.position.set(0, 0.2, 0); displayGroup.add(base);
+
+    [-2.2, 2.2].forEach(px => {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 10), postMat);
+      pillar.position.set(px, 2.3, 0); displayGroup.add(pillar);
+    });
+
+    const borderFrame = new THREE.Mesh(new THREE.BoxGeometry(6.4, 3.8, 0.35), frameMat);
+    borderFrame.position.set(0, 4.2, 0); displayGroup.add(borderFrame);
+
+    const screenFront = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 3.4), screenMat);
+    screenFront.position.set(0, 4.2, 0.19); displayGroup.add(screenFront);
+
+    const screenBack = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 3.4), screenMat);
+    screenBack.position.set(0, 4.2, -0.19); screenBack.rotation.y = Math.PI; displayGroup.add(screenBack);
+
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.22, 0.6), frameMat);
+    topBar.position.set(0, 6.2, 0); displayGroup.add(topBar);
+
+    const lightBulb = new THREE.Mesh(new THREE.BoxGeometry(5.8, 0.1, 0.2), topLightMat);
+    lightBulb.position.set(0, 6.05, 0.22); displayGroup.add(lightBulb);
+
+    displayGroup.position.set(adInfo.x, terrainY, adInfo.z);
+    displayGroup.rotation.y = adInfo.rotY;
+    scene.add(displayGroup);
+
+    const box = {
+      minX: adInfo.x - 3.5, maxX: adInfo.x + 3.5,
+      minZ: adInfo.z - 1.2, maxZ: adInfo.z + 1.2,
+      minY: terrainY, maxY: terrainY + 6.5,
+      type: 'Photo Ad Stand (' + adInfo.title + ')'
+    };
+    buildingBoxes.push(box); registerCollider(box);
+  });
+}
+
+function drawGroundAdPhoto(index, ctx, w, h, timeSec) {
+  const info = GROUND_AD_POSITIONS[index];
+  ctx.clearRect(0, 0, w, h);
+
+  if (index === 0) {
+    const g = ctx.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#020617'); g.addColorStop(1, '#1e1b4b'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(150, 160, 85, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(150, 160, 75, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(150, 160, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(150, 160); ctx.lineTo(150, 105); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(150, 160); ctx.lineTo(190, 160); ctx.stroke();
+    ctx.fillStyle = '#f59e0b'; ctx.font = '900 32px "Bebas Neue", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('VERTEX LUXURY', 260, 110);
+    ctx.fillStyle = '#38bdf8'; ctx.font = '700 20px "JetBrains Mono", monospace'; ctx.fillText('CHRONOGRAPH 2026', 260, 150);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '500 13px "JetBrains Mono", monospace'; ctx.fillText('SWISS PRECISION MOVEMENT', 260, 185);
+
+  } else if (index === 1) {
+    ctx.fillStyle = '#050b14'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 32) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let y = 0; y < h; y += 32) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    const pulse = Math.sin(timeSec * 4) * 0.5 + 0.5;
+    ctx.fillStyle = '#ec4899'; ctx.beginPath(); ctx.arc(w - 120, 140, 50 + pulse * 10, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#38bdf8'; ctx.font = '900 34px "Bebas Neue", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('QUANTUM AI CLOUD CON', 30, 100);
+    ctx.fillStyle = '#22c55e'; ctx.font = '700 18px "JetBrains Mono", monospace'; ctx.fillText('KEYNOTE: DISRUPTIVE TECH', 30, 145);
+    ctx.fillStyle = '#ffffff'; ctx.font = '500 13px "JetBrains Mono", monospace'; ctx.fillText('FINANCIAL DISTRICT PLAZA', 30, 185);
+
+  } else if (index === 2) {
+    const g = ctx.createLinearGradient(0, 0, w, 0); g.addColorStop(0, '#450a0a'); g.addColorStop(1, '#090d16'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(60, 220); ctx.lineTo(240, 170); ctx.lineTo(380, 170); ctx.lineTo(440, 220); ctx.fill();
+    ctx.fillStyle = '#000000'; ctx.fillRect(90, 180, 120, 30);
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(100, 195, 12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#f59e0b'; ctx.font = '900 36px "Bebas Neue", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('AURA HYPERCAR', 40, 80);
+    ctx.fillStyle = '#38bdf8'; ctx.font = '700 18px "JetBrains Mono", monospace'; ctx.fillText('0-100 KM/H IN 1.8S ★ 1200HP', 40, 120);
+
+  } else if (index === 3) {
+    ctx.fillStyle = '#064e3b'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#10b981'; ctx.fillRect(120, 40, 70, 240);
+    ctx.fillStyle = '#facc15'; ctx.font = '900 42px "Bebas Neue", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('NEON ENERGY', 230, 110);
+    ctx.fillStyle = '#ffffff'; ctx.font = '700 20px "JetBrains Mono", monospace'; ctx.fillText('MAX FOCUS & SPEED', 230, 155);
+    ctx.fillStyle = '#38bdf8'; ctx.font = '500 13px "JetBrains Mono", monospace'; ctx.fillText('ZERO SUGAR ★ ELECTROLTYES', 230, 195);
+
+  } else if (index === 4) {
+    const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#831843'); g.addColorStop(0.5, '#be185d'); g.addColorStop(1, '#f59e0b'); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#fef08a'; ctx.beginPath(); ctx.arc(380, 130, 55, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 230, w, 90);
+    ctx.fillStyle = '#ffffff'; ctx.font = '900 36px "Bebas Neue", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('HORIZON RESORT & SPA', 40, 90);
+    ctx.fillStyle = '#fef08a'; ctx.font = '700 18px "JetBrains Mono", monospace'; ctx.fillText('LUXURY VILLAGE BUNGALOWS', 40, 130);
+
+  } else {
+    ctx.fillStyle = '#18181b'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 6; ctx.strokeRect(12, 12, w - 24, h - 24);
+    ctx.fillStyle = '#f59e0b'; ctx.font = '900 40px "Bebas Neue", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ELEVATE METROPOLIS', 256, 110);
+    ctx.fillStyle = '#ffffff'; ctx.font = '700 22px "Bebas Neue", sans-serif'; ctx.fillText('FASHION WEEK 2026', 256, 160);
+    ctx.fillStyle = '#38bdf8'; ctx.font = '600 14px "JetBrains Mono", monospace'; ctx.fillText('HAUTE COUTURE RUNWAY SHOW', 256, 205);
+  }
+
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'; ctx.fillRect(0, h - 35, w, 35);
+  ctx.fillStyle = '#38f2c0'; ctx.font = '700 13px "JetBrains Mono", monospace'; ctx.textAlign = 'center';
+  ctx.fillText('LOCATION: ' + info.name.toUpperCase(), 256, h - 12);
+
+  if (groundAdTextures[index]) groundAdTextures[index].needsUpdate = true;
+}
+
+function updateGroundPhotoAds(timeSec) {
+  GROUND_AD_POSITIONS.forEach((info, idx) => {
+    if (groundAdCanvases[idx]) {
+      const ctx = groundAdCanvases[idx].getContext('2d');
+      drawGroundAdPhoto(idx, ctx, 512, 320, timeSec);
+    }
+  });
+}
+
 function makeGlowTexture(){
   const c = document.createElement('canvas'); c.width=c.height=64; const ctx = c.getContext('2d');
   const g = ctx.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(255,214,140,0.95)'); g.addColorStop(0.4,'rgba(255,180,90,0.38)'); g.addColorStop(1,'rgba(255,180,90,0)');
@@ -1233,6 +1737,8 @@ function updateFpsCounter(){
 
 /* Audio System */
 let audioCtx = null, engineOsc = null, engineFilter = null, engineGain = null, rumbleOsc = null, rumbleGain = null, sirenOsc = null, sirenGain = null, sirenPhase = 0, trafficEngineOsc = null, trafficEngineGain = null, heliAudioOsc = null, heliAudioFilter = null, heliAudioGain = null;
+let beachNoiseNode = null, beachFilter = null, beachGain = null, beachLfo = 0;
+let damWaterNoiseNode = null, damWaterFilter = null, damWaterGain = null;
 let wantedTimer = 0, crashStopTimer = 0;
 
 function initAudio(){
@@ -1258,7 +1764,90 @@ function initAudio(){
     heliAudioFilter = audioCtx.createBiquadFilter(); heliAudioFilter.type = 'lowpass'; heliAudioFilter.frequency.value = 180;
     heliAudioGain = audioCtx.createGain(); heliAudioGain.gain.value = 0.0;
     heliAudioOsc.connect(heliAudioFilter); heliAudioFilter.connect(heliAudioGain); heliAudioGain.connect(audioCtx.destination); heliAudioOsc.start();
+
+    initBeachAudio();
+    initDamAudio();
   } catch(e) { console.warn("WebAudio not supported"); }
+}
+
+function initBeachAudio() {
+  if (!audioCtx || beachGain) return;
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+  beachNoiseNode = audioCtx.createBufferSource();
+  beachNoiseNode.buffer = noiseBuffer;
+  beachNoiseNode.loop = true;
+
+  beachFilter = audioCtx.createBiquadFilter();
+  beachFilter.type = 'lowpass';
+  beachFilter.frequency.value = 350;
+
+  beachGain = audioCtx.createGain();
+  beachGain.gain.value = 0;
+
+  beachNoiseNode.connect(beachFilter);
+  beachFilter.connect(beachGain);
+  beachGain.connect(audioCtx.destination);
+  beachNoiseNode.start();
+}
+
+function initDamAudio() {
+  if (!audioCtx || damWaterGain) return;
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+  damWaterNoiseNode = audioCtx.createBufferSource();
+  damWaterNoiseNode.buffer = noiseBuffer;
+  damWaterNoiseNode.loop = true;
+
+  damWaterFilter = audioCtx.createBiquadFilter();
+  damWaterFilter.type = 'bandpass';
+  damWaterFilter.frequency.value = 650;
+  damWaterFilter.Q.value = 0.8;
+
+  damWaterGain = audioCtx.createGain();
+  damWaterGain.gain.value = 0;
+
+  damWaterNoiseNode.connect(damWaterFilter);
+  damWaterFilter.connect(damWaterGain);
+  damWaterGain.connect(audioCtx.destination);
+  damWaterNoiseNode.start();
+}
+
+function updateDamAudio(dt, activeX, activeZ) {
+  if (!audioCtx || audioCtx.state !== 'running' || !damWaterGain) return;
+  const distToDam = Math.hypot(activeX - HYDRO_DAM.cx, activeZ - HYDRO_DAM.cz);
+
+  if (damGateState.open && distToDam < 220.0 && !inHouse && !inTrain) {
+    const prox = Math.pow(1.0 - (distToDam / 220.0), 1.5);
+    damWaterFilter.frequency.setTargetAtTime(450 + damGateState.progress * 400, audioCtx.currentTime, 0.1);
+    damWaterGain.gain.setTargetAtTime(prox * 0.28 * damGateState.progress, audioCtx.currentTime, 0.1);
+  } else {
+    damWaterGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.2);
+  }
+}
+
+function updateBeachAudio(dt, playerX, playerZ) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  if (!beachGain) initBeachAudio();
+  if (!beachGain) return;
+
+  const distToBeach = Math.abs(playerZ - (COAST.beachStartZ + 15));
+  if (playerZ > COAST.beachStartZ - 40 && distToBeach < 180 && !inHouse && !inTrain) {
+    const prox = Math.max(0, 1.0 - distToBeach / 180.0);
+    beachLfo += dt * 0.8;
+    const waveCycle = 0.5 + Math.sin(beachLfo) * 0.5;
+    
+    beachFilter.frequency.setTargetAtTime(200 + waveCycle * 450, audioCtx.currentTime, 0.1);
+    beachGain.gain.setTargetAtTime(prox * (0.05 + waveCycle * 0.12), audioCtx.currentTime, 0.1);
+  } else {
+    beachGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.2);
+  }
 }
 
 function updateEngineAudio(dt, speedKmh, throttle){
@@ -1339,12 +1928,30 @@ function updatePoliceSiren(dt, isWanted){
 function updateTrafficAudio(dt, playerX, playerZ){
   if(!audioCtx || audioCtx.state !== 'running') return;
   let minDist = Infinity, type = 'bmw';
-  trafficCars.forEach(tc=>{ const d = Math.hypot(playerX - tc.mesh.position.x, playerZ - tc.mesh.position.z); if(d < minDist){ minDist = d; type = tc.type; } });
-  if(minDist < 45 && !inHouse && !inTrain){
-    const p = 1.0 - (minDist / 45.0);
-    trafficEngineGain.gain.setTargetAtTime(p * 0.05, audioCtx.currentTime, 0.1);
-    trafficEngineOsc.frequency.setTargetAtTime(type==='bus'||type==='truck' ? 55+p*40 : 110+p*90, audioCtx.currentTime, 0.1);
-  } else trafficEngineGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.15);
+  
+  trafficCars.forEach(tc => { 
+    const dx = tc.mesh.position.x - playerX;
+    const dz = tc.mesh.position.z - playerZ;
+    const d = Math.hypot(dx, dz); 
+    if(d < minDist){ minDist = d; type = tc.type; } 
+  });
+
+  aiRaceCars.forEach(rc => {
+    const dx = rc.mesh.position.x - playerX;
+    const dz = rc.mesh.position.z - playerZ;
+    const d = Math.hypot(dx, dz);
+    if(d < minDist){ minDist = d; type = 'bmw'; }
+  });
+
+  if(minDist <= 15.0 && !inHouse && !inTrain){
+    const proximityFactor = Math.pow(1.0 - (minDist / 15.0), 1.8);
+    trafficEngineGain.gain.setTargetAtTime(proximityFactor * 0.35, audioCtx.currentTime, 0.05);
+    const baseFreq = (type === 'bus' || type === 'truck') ? 70 : 140;
+    const revPitch = baseFreq + proximityFactor * 180;
+    trafficEngineOsc.frequency.setTargetAtTime(revPitch, audioCtx.currentTime, 0.05);
+  } else {
+    trafficEngineGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.1);
+  }
 }
 
 let treeTrunkInstancedMesh = null;
@@ -1401,10 +2008,12 @@ function isNearRoad(x, z, minDist = 16.0){
   }
 
   if(Math.abs(z - SUBURBAN_ZONE.roadZ) < minDist + 4.0 && x >= SUBURBAN_ZONE.startX - 40 && x <= SUBURBAN_ZONE.endX + 40) return true;
+  if(Math.abs(z - VILLAGE_CANAL.cz) < VILLAGE_CANAL.width / 2 + 6.0 && x >= VILLAGE_CANAL.startX - 20 && x <= VILLAGE_CANAL.endX + 20) return true;
 
   if(Math.hypot(x - COAST.islandX, z - COAST.islandZ) < COAST.islandR + 10.0) return true;
   if(Math.hypot(x - GROUND_HELIPAD.x, z - GROUND_HELIPAD.z) < GROUND_HELIPAD.radius + 12.0) return true;
   if(Math.hypot(x - STATION_POS.x, z - STATION_POS.z) < 45.0) return true;
+  if(Math.hypot(x - HYDRO_DAM.cx, z - HYDRO_DAM.cz) < HYDRO_DAM.wallLength/2 + 20.0) return true;
   if(isPointOnRoad(x, z)) return true;
 
   return false;
@@ -1436,20 +2045,42 @@ function addDetailedTree(x, z, scale = 1.0){
 
 function updateAllLODs(activeX, activeZ){}
 
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    const docEl = document.documentElement;
+    if (docEl.requestFullscreen) docEl.requestFullscreen();
+    else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+    if(domFullscreenBtn) domFullscreenBtn.textContent = 'EXIT';
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    if(domFullscreenBtn) domFullscreenBtn.textContent = '⛶ FULL';
+  }
+}
+
 function init(){
   try {
     cacheDomElements();
     scene = new THREE.Scene();
-    renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance', stencil: false });
-    renderer.setPixelRatio(1.0);
+
+    renderer = new THREE.WebGLRenderer({ 
+      antialias: !isMobile, 
+      powerPreference: 'high-performance', 
+      stencil: false,
+      depth: true
+    });
+    
+    renderer.setPixelRatio(isMobile ? 1.0 : Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !isMobile;
     renderer.shadowMap.type = THREE.BasicShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace ? THREE.SRGBColorSpace : THREE.sRGBEncoding;
     document.getElementById('canvas-wrap').appendChild(renderer.domElement);
 
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 2400);
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, isMobile ? 1000 : 2400);
 
     detailedBuildingGroup = new THREE.Group();
     scene.add(detailedBuildingGroup);
@@ -1457,20 +2088,49 @@ function init(){
     initCSS3DRenderer();
     initLoveStoryVideoCanvas();
     initDistrictAdCanvases();
+    initGroundPhotoAds();
     createGlobalTextureAtlas();
     initInstancedTrees();
-    buildLights(); buildSky(); buildGround(); buildSheikhZayedRoadAndMetro();
-    buildMountainsAndGreenTerrain(); buildVillageBridge(); buildMountainTrainAndBridges(); buildRailwayStation(); 
-    buildSuburbanLinearNeighborhood(); buildMountainLuxuryBungalow(); buildRaceTrack(); buildFogBarrier(); buildCity(); buildFlyover();
-    buildCoast(); buildHashiqBeachLandmark(); buildGroundHelipad(); buildBeachTVFrame(); buildMountainTVFrame(); buildRacewayGatewayWall(); buildLamps(); buildTrafficLights(); buildBusStops();
-    buildTraffic(); buildPedestrians(); buildHummerH3Car(); buildDrivableHelicopter(); buildStars(); buildPoliceHelicopter();
+    buildLights(); 
+    buildSky(); 
+    buildGround(); 
+    buildSheikhZayedRoadAndMetro();
+    buildMountainsAndGreenTerrain(); 
+    buildHydroelectricDam();
+    buildDamParticleSpray();
+    buildVillageBridge(); 
+    buildMountainTrainAndBridges(); 
+    buildRailwayStation(); 
+    buildSuburbanLinearNeighborhood(); 
+    buildVillageCanal();
+    buildMountainLuxuryBungalow(); 
+    buildRaceTrack(); 
+    buildFogBarrier(); 
+    buildCity(); 
+    buildFlyover();
+    buildCoast(); 
+    buildHashiqBeachLandmark(); 
+    buildGroundHelipad(); 
+    buildBeachTVFrame(); 
+    buildMountainTVFrame(); 
+    buildRacewayGatewayWall(); 
+    buildLamps(); 
+    buildTrafficLights(); 
+    buildBusStops();
+    buildTraffic(); 
+    buildPedestrians(); 
+    buildHummerH3Car(); 
+    buildDrivableHelicopter(); 
+    buildStars(); 
+    buildPoliceHelicopter();
     buildHouseInterior();
 
     initCabDutySystem();
     setupFullMapModal();
     initMultiplayerUI();
 
-    window.addEventListener('resize', onResize); setupInput();
+    window.addEventListener('resize', onResize); 
+    setupInput();
     onResize();
 
     setInterval(broadcastNetworkState, 50);
@@ -1550,13 +2210,13 @@ function buildGround(){
   const px = 256, c = document.createElement('canvas'); c.width = c.height = px; const ctx = c.getContext('2d');
   const blockPx = px * (1 - WORLD.roadWidth / WORLD.cell);
   drawAsphaltGrain(ctx, px, px);
-  ctx.fillStyle = '#505257'; ctx.fillRect(0,0,blockPx,blockPx);
+  ctx.fillStyle = '#505257'; ctx.fillRect(45,45,blockPx,blockPx);
   for(let i=0;i<3000;i++){ const v = 70 + Math.random()*36; ctx.fillStyle = `rgba(${v},${v},${v+3},${0.1+Math.random()*0.14})`; ctx.fillRect(Math.random()*blockPx, Math.random()*blockPx, 1.3, 1.3); }
   ctx.strokeStyle = '#36383b'; ctx.lineWidth = 4; ctx.strokeRect(2,2,blockPx-4,blockPx-4);
-  ctx.fillStyle = ASPHALT.edgeColor; ctx.fillRect(0, blockPx+4, px, 3); ctx.fillRect(0, px-4, px, 3); ctx.fillRect(blockPx+4, 0, 3, px); ctx.fillRect(px-4, 0, 3, px);
-  ctx.fillStyle = ASPHALT.laneColor; const dash=14, gap=11, laneY = blockPx + (px-blockPx)/2 - 2;
+  ctx.fillStyle = ASPHALT.edgeColor; ctx.fillRect(0, blockPx+49, px, 3); ctx.fillRect(0, px-4, px, 3); ctx.fillRect(blockPx+49, 0, 3, px); ctx.fillRect(px-4, 0, 3, px);
+  ctx.fillStyle = ASPHALT.laneColor; const dash=14, gap=15, laneY = blockPx + (px-blockPx)/1 - 1;
   for(let x=5;x<px;x+=dash+gap) ctx.fillRect(x, laneY, dash, 4);
-  for(let y=5;y<px;y+=dash+gap) ctx.fillRect(blockPx + (px-blockPx)/2 - 2, y, 4, dash);
+  for(let y=5;y<px;y+=dash+gap) ctx.fillRect(blockPx + (px-blockPx)/1 - 1, y, 2, dash);
 
   const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(WORLD.blocks, WORLD.blocks); tex.anisotropy = 4;
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(WORLD.blocks*WORLD.cell, WORLD.blocks*WORLD.cell), new THREE.MeshStandardMaterial({ map:tex, roughness:0.9, metalness:0.06 }));
@@ -1705,7 +2365,16 @@ function addBusStopShelter(x, z, rotY, frameMat, glassMat, benchMat, signMat){
   propColliders.push(collider); registerCollider(collider);
 }
 
-function getTerrainHeight(x, z){
+const TERR_SIZE = 4800;
+const TERR_SEG = 160;
+const TERR_GRID_COUNT = TERR_SEG + 1;
+const terrainHeightGrid = new Float32Array(TERR_GRID_COUNT * TERR_GRID_COUNT);
+let terrainGridInitialized = false;
+
+function computeRawTerrainMath(x, z) {
+  if (Math.abs(x) <= WORLD.half + 30 && z >= -WORLD.half - 30 && z < COAST.beachStartZ) {
+    return 0.0;
+  }
   if (Math.hypot(x - RACE_TRACK.cx, z - RACE_TRACK.cz) < RACE_TRACK.radius + RACE_TRACK.straightLen/2 + 100) {
     return 0.0;
   }
@@ -1715,66 +2384,377 @@ function getTerrainHeight(x, z){
   if (z <= SUBURBAN_ZONE.roadZ + 20 && z >= SUBURBAN_ZONE.rowZ - 30 && x >= SUBURBAN_ZONE.startX - 60 && x <= SUBURBAN_ZONE.endX + 60) {
     return 0.0;
   }
+  if (x >= VILLAGE_CANAL.startX - 20 && x <= VILLAGE_CANAL.endX + 20 && Math.abs(z - VILLAGE_CANAL.cz) <= VILLAGE_CANAL.width / 2 + 3.0) {
+    return 0.0;
+  }
   if (x >= -360 && x <= -120 && z <= -540 && z >= -820) {
     return 0.0;
   }
-  if(Math.abs(x) <= WORLD.half + 30 && z >= -WORLD.half - 30 && z < COAST.beachStartZ){
+  if (z <= -780 && x >= -500 && x <= 150) {
     return 0.0;
   }
-  if(z <= -780 && x >= -500 && x <= 150){
-    return 0.0;
-  }
-  if(villageBridgePoints && villageBridgePoints.length > 0){
-    for(let i = 0; i < villageBridgePoints.length; i += 4){
-      const bp = villageBridgePoints[i];
-      const distSq = (x - bp.x) * (x - bp.x) + (z - bp.z) * (z - bp.z);
-      if(distSq < 900){
-        const maxAllowedH = Math.max(0.0, bp.y - 4.5);
-        const rawH = getRawTerrainHeight(x, z);
-        return Math.min(rawH, maxAllowedH);
-      }
-    }
-  }
-  return getRawTerrainHeight(x, z);
-}
 
-function getRawTerrainHeight(x, z){
-  if (Math.hypot(x - RACE_TRACK.cx, z - RACE_TRACK.cz) < RACE_TRACK.radius + RACE_TRACK.straightLen/2 + 100) {
-    return 0.0;
+  const distMtnL = Math.hypot(x - HYDRO_DAM.cx, z - (-110.0));
+  if (distMtnL < 95.0) {
+    return (1.0 - distMtnL / 95.0) * 72.0;
   }
-  if (x >= WORLD.half - 40 && x <= RACE_TRACK.cx && Math.abs(z) < 22.0) {
-    return 0.0;
+  const distMtnR = Math.hypot(x - HYDRO_DAM.cx, z - (110.0));
+  if (distMtnR < 95.0) {
+    return (1.0 - distMtnR / 95.0) * 72.0;
   }
+  if (x < HYDRO_DAM.cx && x > HYDRO_DAM.cx - 240 && Math.abs(z) < 95.0) {
+    return 4.0;
+  }
+  if (x >= HYDRO_DAM.cx && x <= -WORLD.half && Math.abs(z) < 18.0) {
+    const tRatio = (x - HYDRO_DAM.cx) / (-WORLD.half - HYDRO_DAM.cx);
+    return (1.0 - tRatio) * HYDRO_DAM.roadY;
+  }
+
   if (x >= WORLD.half + 70 && x <= WORLD.half + 190 && Math.abs(z) < 450.0) {
     const distCenter = 1.0 - Math.abs(x - (WORLD.half + 130)) / 60.0;
     const peak = Math.sin((x - WORLD.half) * 0.05) * 42.0 + Math.cos(z * 0.02) * 18.0;
     return Math.max(0.0, (peak + 24.0) * Math.max(0, distCenter));
   }
-  if (x >= -360 && x <= -120 && z <= -540 && z >= -820) {
-    return 0.0;
-  }
-  if(z < -WORLD.half - 30 && z > -780){
+  if (z < -WORLD.half - 30 && z > -780) {
     const ridge = Math.sin((z + 650) * 0.02) * 32.0 + Math.cos(x * 0.025) * 25.0 + 30.0;
     return Math.max(0.0, ridge);
   }
-  if(z >= COAST.beachStartZ) return 0.0;
+  if (z >= COAST.beachStartZ) return 0.0;
 
-  const dx = Math.max(0, Math.abs(x) - (WORLD.half + 30)), dz = Math.max(0, Math.abs(z) - (WORLD.half + 30)), dist = Math.hypot(dx, dz);
-  if(dist === 0) return 0.0;
+  const dx = Math.max(0, Math.abs(x) - (WORLD.half + 30));
+  const dz = Math.max(0, Math.abs(z) - (WORLD.half + 30));
+  const dist = Math.hypot(dx, dz);
+  if (dist === 0) return 0.0;
+
   const hills = Math.sin(x * 0.015) * 22 + Math.cos(z * 0.018) * 18 + Math.sin((x + z) * 0.028) * 9;
   return Math.max(0.0, (hills + 16.0) * Math.min(1.0, dist / 90.0));
 }
 
-function buildMountainsAndGreenTerrain(){
-  const terrGeo = new THREE.PlaneGeometry(4800, 4800, 80, 80); const pos = terrGeo.attributes.position;
-  for(let i=0; i<pos.count; i++) pos.setZ(i, getTerrainHeight(pos.getX(i), -pos.getY(i)));
+function initTerrainGridData() {
+  const halfSize = TERR_SIZE / 2;
+  const step = TERR_SIZE / TERR_SEG;
+
+  for (let gz = 0; gz <= TERR_SEG; gz++) {
+    const worldZ = -halfSize + gz * step;
+    for (let gx = 0; gx <= TERR_SEG; gx++) {
+      const worldX = -halfSize + gx * step;
+      const h = computeRawTerrainMath(worldX, worldZ);
+      terrainHeightGrid[gz * TERR_GRID_COUNT + gx] = h;
+    }
+  }
+  terrainGridInitialized = true;
+}
+
+function getBilinearMeshHeight(x, z) {
+  if (!terrainGridInitialized) initTerrainGridData();
+
+  const halfSize = TERR_SIZE / 2;
+  const step = TERR_SIZE / TERR_SEG;
+
+  const gx = (x + halfSize) / step;
+  const gz = (z + halfSize) / step;
+
+  if (gx < 0 || gx >= TERR_SEG || gz < 0 || gz >= TERR_SEG) {
+    return computeRawTerrainMath(x, z);
+  }
+
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  const fx = gx - ix;
+  const fz = gz - iz;
+
+  const h00 = terrainHeightGrid[iz * TERR_GRID_COUNT + ix];
+  const h10 = terrainHeightGrid[iz * TERR_GRID_COUNT + (ix + 1)];
+  const h01 = terrainHeightGrid[(iz + 1) * TERR_GRID_COUNT + ix];
+  const h11 = terrainHeightGrid[(iz + 1) * TERR_GRID_COUNT + (ix + 1)];
+
+  const hTop = h00 + (h10 - h00) * fx;
+  const hBottom = h01 + (h11 - h01) * fx;
+  return hTop + (hBottom - hTop) * fz;
+}
+
+function getTerrainHeight(x, z) {
+  if (villageBridgePoints && villageBridgePoints.length > 0 && z <= -430 && z >= -850 && x >= -320 && x <= -160) {
+    for (let i = 0; i < villageBridgePoints.length; i += 6) {
+      const bp = villageBridgePoints[i];
+      const distSq = (x - bp.x) * (x - bp.x) + (z - bp.z) * (z - bp.z);
+      if (distSq < 900) {
+        const maxAllowedH = Math.max(0.0, bp.y - 4.5);
+        const rawH = getBilinearMeshHeight(x, z);
+        return Math.min(rawH, maxAllowedH);
+      }
+    }
+  }
+  return getBilinearMeshHeight(x, z);
+}
+
+function getRawTerrainHeight(x, z) {
+  return getBilinearMeshHeight(x, z);
+}
+
+function buildMountainsAndGreenTerrain() {
+  if (!terrainGridInitialized) initTerrainGridData();
+
+  const terrGeo = new THREE.PlaneGeometry(TERR_SIZE, TERR_SIZE, TERR_SEG, TERR_SEG);
+  const pos = terrGeo.attributes.position;
+
+  for (let gz = 0; gz <= TERR_SEG; gz++) {
+    for (let gx = 0; gx <= TERR_SEG; gx++) {
+      const idx = gz * TERR_GRID_COUNT + gx;
+      pos.setZ(idx, terrainHeightGrid[idx]);
+    }
+  }
+
   terrGeo.computeVertexNormals();
 
-  const grassTexOuter = makeGrassTexture().clone(); grassTexOuter.repeat.set(24, 24); grassTexOuter.needsUpdate = true;
-  const terrainMesh = new THREE.Mesh(terrGeo, new THREE.MeshStandardMaterial({ map: grassTexOuter, color: 0x3d703e, roughness: 0.95 }));
-  terrainMesh.rotation.x = -Math.PI/2; terrainMesh.position.y = -0.05; terrainMesh.receiveShadow = false; terrainMesh.matrixAutoUpdate = false; terrainMesh.updateMatrix(); scene.add(terrainMesh);
+  const grassTexOuter = makeGrassTexture().clone();
+  grassTexOuter.repeat.set(24, 24);
+  grassTexOuter.needsUpdate = true;
+
+  const terrainMesh = new THREE.Mesh(
+    terrGeo,
+    new THREE.MeshStandardMaterial({ map: grassTexOuter, color: 0x3d703e, roughness: 0.95 })
+  );
+  terrainMesh.rotation.x = -Math.PI / 2;
+  terrainMesh.position.y = -0.05;
+  terrainMesh.receiveShadow = false;
+  terrainMesh.matrixAutoUpdate = false;
+  terrainMesh.updateMatrix();
+  scene.add(terrainMesh);
 
   buildOuterForests();
+}
+
+function buildDamParticleSpray() {
+  const particleCount = 800;
+  damParticleGeo = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = new Float32Array(particleCount * 3);
+
+  const dx = HYDRO_DAM.cx + HYDRO_DAM.wallThickness/2 + 28.0;
+
+  for (let i = 0; i < particleCount; i++) {
+    positions[i*3] = dx + (Math.random() - 0.5) * 12.0;
+    positions[i*3+1] = 1.0 + Math.random() * 4.0;
+    positions[i*3+2] = (Math.random() - 0.5) * 80.0;
+
+    velocities[i*3] = 4.0 + Math.random() * 12.0;
+    velocities[i*3+1] = 3.0 + Math.random() * 8.0;
+    velocities[i*3+2] = (Math.random() - 0.5) * 4.0;
+  }
+
+  damParticleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  damParticleGeo.userData = { velocities };
+
+  const spriteMat = new THREE.PointsMaterial({
+    color: 0xe0f2fe,
+    size: 4.5,
+    transparent: true,
+    opacity: 0.0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  damMistParticles = new THREE.Points(damParticleGeo, spriteMat);
+  scene.add(damMistParticles);
+}
+
+function updateDamParticleSpray(dt) {
+  if (!damMistParticles || !damParticleGeo) return;
+
+  const positions = damParticleGeo.attributes.position.array;
+  const velocities = damParticleGeo.userData.velocities;
+  const count = positions.length / 3;
+  const dx = HYDRO_DAM.cx + HYDRO_DAM.wallThickness/2 + 28.0;
+
+  damMistParticles.material.opacity = damGateState.progress * 0.65;
+
+  if (damGateState.progress > 0.01) {
+    for (let i = 0; i < count; i++) {
+      positions[i*3] += velocities[i*3] * dt * damGateState.progress;
+      positions[i*3+1] += velocities[i*3+1] * dt * damGateState.progress;
+      positions[i*3+2] += velocities[i*3+2] * dt * damGateState.progress;
+
+      if (positions[i*3+1] > 18.0 || positions[i*3] > dx + 35.0) {
+        positions[i*3] = dx + (Math.random() - 0.5) * 10.0;
+        positions[i*3+1] = 1.0 + Math.random() * 3.0;
+        positions[i*3+2] = (Math.random() - 0.5) * 75.0;
+      }
+    }
+    damParticleGeo.attributes.position.needsUpdate = true;
+  }
+}
+
+function buildHydroelectricDam() {
+  const damGroup = new THREE.Group();
+  const dx = HYDRO_DAM.cx, dz = HYDRO_DAM.cz;
+
+  const concMat = new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.7, metalness: 0.2 });
+  const darkSteel = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.9 });
+  const cyanGlowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 2.5 });
+
+  damLakeWaterMaterial = createReferenceWaterMaterial({
+    speed: 0.5,
+    waveScale: 0.5,
+    waterColor: new THREE.Color(0x02253b),
+    shallowColor: new THREE.Color(0x0b556b)
+  });
+
+  damSpillwayWaterMaterial = createReferenceWaterMaterial({
+    speed: 3.5,
+    waveScale: 1.4,
+    waterColor: new THREE.Color(0x044766),
+    shallowColor: new THREE.Color(0xd9f2fa),
+    isSpillway: true
+  });
+
+  const damShape = new THREE.Shape();
+  damShape.moveTo(-HYDRO_DAM.wallThickness / 2, 0);
+  damShape.lineTo(HYDRO_DAM.wallThickness / 2 + 18.0, 0);
+  damShape.lineTo(HYDRO_DAM.wallThickness / 2, HYDRO_DAM.wallHeight);
+  damShape.lineTo(-HYDRO_DAM.wallThickness / 2, HYDRO_DAM.wallHeight);
+  damShape.closePath();
+
+  const extrudeSettings = { steps: 1, depth: HYDRO_DAM.wallLength, bevelEnabled: false };
+  const damGeom = new THREE.ExtrudeGeometry(damShape, extrudeSettings);
+  damGeom.center();
+  const damWall = new THREE.Mesh(damGeom, concMat);
+  damWall.position.set(0, HYDRO_DAM.wallHeight / 2, 0);
+  damWall.rotation.y = Math.PI / 2;
+  damGroup.add(damWall);
+
+  const roadDeck = new THREE.Mesh(
+    new THREE.PlaneGeometry(HYDRO_DAM.wallThickness, HYDRO_DAM.wallLength), 
+    makeFlyoverRoadTexture(HYDRO_DAM.wallLength)
+  );
+  roadDeck.rotation.x = -Math.PI / 2;
+  roadDeck.position.set(0, HYDRO_DAM.wallHeight + 0.1, 0);
+  damGroup.add(roadDeck);
+
+  [-HYDRO_DAM.wallThickness / 2 + 0.5, HYDRO_DAM.wallThickness / 2 - 0.5].forEach(rx => {
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.4, HYDRO_DAM.wallLength), concMat);
+    rail.position.set(rx, HYDRO_DAM.wallHeight + 0.7, 0);
+    damGroup.add(rail);
+  });
+
+  damGatesList = [];
+  waterFallStreams = [];
+  [-30, 0, 30].forEach((gz, idx) => {
+    const gateMesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 11.0, 16.0), darkSteel);
+    const gateBaseY = 14.0;
+    gateMesh.position.set(HYDRO_DAM.wallThickness / 2 + 0.2, gateBaseY, gz);
+    gateMesh.userData = { baseY: gateBaseY, gateIndex: idx };
+    damGroup.add(gateMesh);
+    damGatesList.push(gateMesh);
+
+    const chuteGeo = new THREE.PlaneGeometry(16.0, 38.0, 32, 32);
+    const chuteMesh = new THREE.Mesh(chuteGeo, damSpillwayWaterMaterial);
+    chuteMesh.position.set(HYDRO_DAM.wallThickness / 2 + 10.0, 14.0, gz);
+    chuteMesh.rotation.y = Math.PI / 2;
+    chuteMesh.rotation.x = 0.85;
+    chuteMesh.scale.set(0.01, 0.01, 0.01);
+    damGroup.add(chuteMesh);
+    waterFallStreams.push(chuteMesh);
+  });
+
+  const lakeGeo = new THREE.CylinderGeometry(140, 130, 0.2, 64);
+  reservoirLakeMesh = new THREE.Mesh(lakeGeo, damLakeWaterMaterial);
+  reservoirLakeMesh.position.set(-135, HYDRO_DAM.lakeWaterY, 0);
+  damGroup.add(reservoirLakeMesh);
+
+  const riverRunGeo = new THREE.PlaneGeometry(280, 75, 64, 64);
+  spillwayWaterMesh = new THREE.Mesh(riverRunGeo, damLakeWaterMaterial);
+  spillwayWaterMesh.rotation.x = -Math.PI / 2;
+  spillwayWaterMesh.position.set(155, 0.8, 0);
+  damGroup.add(spillwayWaterMesh);
+
+  const connLen = 300.0;
+  const approachRoad = new THREE.Mesh(
+    new THREE.PlaneGeometry(connLen, 16.0), 
+    makeFlyoverRoadTexture(connLen)
+  );
+  approachRoad.rotation.x = -Math.PI / 2;
+  approachRoad.position.set(dx + connLen / 2, HYDRO_DAM.roadY / 2, 0);
+  approachRoad.rotation.z = -Math.atan2(HYDRO_DAM.roadY, connLen);
+  scene.add(approachRoad);
+
+  damGroup.position.set(dx, 0, dz);
+  scene.add(damGroup);
+
+  const box = { 
+    minX: dx - HYDRO_DAM.wallThickness / 2, 
+    maxX: dx + HYDRO_DAM.wallThickness / 2 + 18.0, 
+    minZ: -HYDRO_DAM.wallLength / 2, 
+    maxZ: HYDRO_DAM.wallLength / 2, 
+    minY: 0, 
+    maxY: HYDRO_DAM.wallHeight + 6.0, 
+    type: 'Hydroelectric Water Dam' 
+  };
+  buildingBoxes.push(box); 
+  registerCollider(box);
+}
+
+function toggleDamGates() {
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  damGateState.open = !damGateState.open;
+  const targetVal = damGateState.open ? 1.0 : 0.0;
+
+  if (typeof anime !== 'undefined') {
+    anime({
+      targets: damGateState,
+      progress: targetVal,
+      duration: 2600,
+      easing: 'easeInOutCubic',
+      update: function() {
+        damGatesList.forEach(gate => {
+          gate.position.y = gate.userData.baseY + damGateState.progress * 10.0;
+        });
+
+        if (damSpillwayWaterMaterial) {
+          damSpillwayWaterMaterial.uniforms.uSpeed.value = 0.1 + damGateState.progress * 3.4;
+          damSpillwayWaterMaterial.uniforms.uWaveScale.value = 0.2 + damGateState.progress * 1.8;
+        }
+
+        waterFallStreams.forEach(stream => {
+          stream.scale.set(damGateState.progress, damGateState.progress, damGateState.progress);
+        });
+
+        if (domDamWaterVal) domDamWaterVal.textContent = Math.round(65 + damGateState.progress * 30) + '%';
+        if (domDamGateVal) {
+          domDamGateVal.textContent = damGateState.open ? 'OPEN (WATER FLOWING)' : 'CLOSED';
+          domDamGateVal.style.color = damGateState.open ? 'var(--green)' : 'var(--gold)';
+        }
+
+        const fillElem = document.querySelector('.dam-water-fill');
+        if (fillElem) fillElem.style.width = (65 + damGateState.progress * 30) + '%';
+      }
+    });
+  } else {
+    damGateState.progress = targetVal;
+    damGatesList.forEach(gate => { gate.position.y = gate.userData.baseY + targetVal * 10.0; });
+    if (damSpillwayWaterMaterial) {
+      damSpillwayWaterMaterial.uniforms.uSpeed.value = 0.1 + targetVal * 3.4;
+      damSpillwayWaterMaterial.uniforms.uWaveScale.value = 0.2 + targetVal * 1.8;
+    }
+  }
+
+  showToast(damGateState.open ? "ANIME.JS: SLUICE GATES OPENED 🌊 ULTRA WATER FLOW ACTIVE" : "ANIME.JS: SLUICE GATES CLOSED 🛑");
+  if (damGateState.open) playMoneySound(); else playCrashSound(0.4);
+}
+
+function updateDamWaterFlowAnimation(curTimeSec, dt) {
+  if (damSpillwayWaterMaterial) {
+    damSpillwayWaterMaterial.uniforms.uTime.value = curTimeSec;
+  }
+  if (damLakeWaterMaterial) {
+    damLakeWaterMaterial.uniforms.uTime.value = curTimeSec;
+  }
+  if (oceanWaterMaterial) {
+    oceanWaterMaterial.uniforms.uTime.value = curTimeSec;
+  }
+  updateDamParticleSpray(dt);
 }
 
 function buildFogBarrier(){}
@@ -1841,21 +2821,6 @@ function buildRaceTrack(){
   gantryGroup.position.copy(gantryPos);
   scene.add(gantryGroup);
 
-  for(let fl = 0; fl < 6; fl++){
-    const angle = (fl / 6) * Math.PI * 2;
-    const fx = RACE_TRACK.cx + Math.cos(angle) * (RACE_TRACK.radius + 35);
-    const fz = RACE_TRACK.cz + Math.sin(angle) * (RACE_TRACK.straightLen/2 + 35);
-
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 24.0, 8), trussMat);
-    pole.position.set(fx, 12.0, fz); scene.add(pole);
-
-    const lightHead = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.2, 1.2), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.5 }));
-    lightHead.position.set(fx, 24.0, fz); scene.add(lightHead);
-
-    const floodSpot = new THREE.PointLight(0xfff0c2, 3.5, 120);
-    floodSpot.position.set(fx, 23.0, fz); scene.add(floodSpot);
-  }
-
   const connRoadLen = (RACE_TRACK.cx - RACE_TRACK.radius) - WORLD.half;
   const connRoad = new THREE.Mesh(
     new THREE.PlaneGeometry(connRoadLen, 22.0),
@@ -1871,7 +2836,7 @@ function buildRaceTrack(){
 
   const raceColors = [0xef4444, 0xfacc15, 0x38bdf8];
   aiRaceCars = [];
-  for(let rc = 0; rc < 3; rc++){
+  for(let rc = 0; rc < 2; rc++){
     const aiCarMesh = createDetailedHummerMesh(raceColors[rc], `RACE ${rc+1}`, `RACER ${rc+1}`, false);
     scene.add(aiCarMesh);
     aiRaceCars.push({
@@ -1886,7 +2851,9 @@ function updateRaceCars(dt){
   if(!raceTrackCurve || aiRaceCars.length === 0) return;
 
   aiRaceCars.forEach(rc => {
-    rc.progress = (rc.progress + dt * rc.speed * 0.0006) % 1.0;
+    if(!raceState.active || raceState.countdown <= 0) {
+      rc.progress = (rc.progress + dt * rc.speed * 0.0006) % 1.0;
+    }
     const pos = raceTrackCurve.getPointAt(rc.progress);
     const lookTarget = raceTrackCurve.getPointAt((rc.progress + 0.002) % 1.0);
 
@@ -1899,6 +2866,118 @@ function updateRaceCars(dt){
       });
     }
   });
+}
+
+function startRaceGame() {
+  if (raceState.active || !raceTrackCurve) return;
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  raceState.active = true;
+  raceState.countdown = 3;
+  raceState.countdownTimer = 1.0;
+  raceState.winnerAwarded = false;
+  raceState.playerProgress = 0.0;
+  raceState.rank = 1;
+
+  const pStart = raceTrackCurve.getPointAt(0.0);
+  const pAhead = raceTrackCurve.getPointAt(0.01);
+  
+  const trackHeading = Math.atan2(pAhead.x - pStart.x, pAhead.z - pStart.z);
+  const rightVector = new THREE.Vector3(-Math.cos(trackHeading), 0, Math.sin(trackHeading));
+
+  const playerPos = pStart.clone().add(rightVector.clone().multiplyScalar(-3.5));
+  carState.x = playerPos.x;
+  carState.z = playerPos.z;
+  carState.heading = trackHeading;
+  carState.speed = 0;
+  carState.pitch = 0;
+  carState.roll = 0;
+
+  dragYaw = 0;
+  dragPitch = 0;
+
+  if (aiRaceCars.length >= 2) {
+    aiRaceCars[0].progress = 0.992;
+    aiRaceCars[0].speed = 72.0;
+
+    aiRaceCars[1].progress = 0.984;
+    aiRaceCars[1].speed = 68.0;
+  }
+
+  showToast("RACE STARTING! 3... GET READY 🏎️");
+  playTickSound();
+}
+
+function updateRaceGame(dt) {
+  if (!raceState.active) return;
+
+  if (raceState.countdown > 0) {
+    carState.speed = 0;
+    raceState.countdownTimer -= dt;
+    if (raceState.countdownTimer <= 0) {
+      raceState.countdownTimer = 1.0;
+      raceState.countdown--;
+      if (raceState.countdown > 0) {
+        showToast(`GET READY! ${raceState.countdown} 🏎️`);
+        playTickSound();
+      } else {
+        showToast("GO! GO! GO! 🏁");
+        playMoneySound();
+      }
+    }
+    return;
+  }
+
+  if (raceTrackCurve && car) {
+    const playerPos = car.position;
+    let minD = Infinity, closestT = 0;
+    for (let t = 0; t <= 1.0; t += 0.01) {
+      const pt = raceTrackCurve.getPointAt(t);
+      const d = Math.hypot(playerPos.x - pt.x, playerPos.z - pt.z);
+      if (d < minD) { minD = d; closestT = t; }
+    }
+    
+    if (raceState.playerProgress > 0.85 && closestT < 0.15) {
+      calculateRaceFinish();
+    } else {
+      raceState.playerProgress = closestT;
+    }
+
+    aiRaceCars.forEach(ai => {
+      const dist = Math.hypot(playerPos.x - ai.mesh.position.x, playerPos.z - ai.mesh.position.z);
+      if (dist < 3.2) {
+        triggerCrashFeedback('RACE CAR');
+        carState.speed *= 0.45;
+      }
+    });
+  }
+}
+
+function calculateRaceFinish() {
+  if (raceState.winnerAwarded || !raceState.active) return;
+  raceState.winnerAwarded = true;
+
+  let rank = 1;
+  aiRaceCars.forEach(ai => {
+    if (ai.progress > raceState.playerProgress && ai.progress < 0.95) rank++;
+  });
+
+  raceState.rank = rank;
+
+  if (rank === 1) {
+    cabState.totalEarned += 500;
+    if (domCabTotal) domCabTotal.textContent = "$" + cabState.totalEarned;
+    showToast("VICTORY! 1ST PLACE WINNER! +$500 REWARD 🏆💰");
+    playMoneySound();
+  } else {
+    showToast(`RACE FINISHED! ${rank}ND PLACE - TRY AGAIN 🏎️`);
+    playCrashSound(0.5);
+  }
+
+  setTimeout(() => {
+    raceState.active = false;
+  }, 3000);
 }
 
 function buildMountainTrainAndBridges(){
@@ -2152,7 +3231,7 @@ function buildVillageBridge(){
     new THREE.Vector3(-290, 0.2, -840)
   ]);
 
-  villageBridgePoints = VILLAGE_BRIDGE_PATH.getPoints(300);
+villageBridgePoints = VILLAGE_BRIDGE_PATH.getPoints(300);
   const segments = 100;
   const points = VILLAGE_BRIDGE_PATH.getPoints(segments);
   const roadWidth = 16.0;
@@ -2296,6 +3375,101 @@ function buildSuburbanLinearNeighborhood(){
   }
 }
 
+function buildVillageCanal() {
+  const canalGroup = new THREE.Group();
+  const len = VILLAGE_CANAL.endX - VILLAGE_CANAL.startX;
+  const cx = (VILLAGE_CANAL.startX + VILLAGE_CANAL.endX) / 2;
+  const cz = VILLAGE_CANAL.cz;
+  const w = VILLAGE_CANAL.width;
+
+  const stoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8, metalness: 0.2 });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
+  const lightGlowMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 2.5 });
+
+  const canalWaterMat = createReferenceWaterMaterial({
+    speed: 0.6,
+    waveScale: 0.45,
+    waterColor: new THREE.Color(0x023047),
+    shallowColor: new THREE.Color(0x0a647d)
+  });
+
+  const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(len, w, 128, 16), canalWaterMat);
+  waterMesh.rotation.x = -Math.PI / 2;
+  waterMesh.position.set(cx, VILLAGE_CANAL.waterY, cz);
+  canalGroup.add(waterMesh);
+
+  const canalBed = new THREE.Mesh(new THREE.PlaneGeometry(len + 10, w + 4), new THREE.MeshStandardMaterial({ color: 0x09111e, roughness: 0.95 }));
+  canalBed.rotation.x = -Math.PI / 2;
+  canalBed.position.set(cx, -0.6, cz);
+  canalGroup.add(canalBed);
+
+  const wallH = 1.4;
+  [-w / 2, w / 2].forEach(sideZ => {
+    const embankment = new THREE.Mesh(new THREE.BoxGeometry(len, wallH, 1.2), stoneMat);
+    embankment.position.set(cx, wallH / 2 - 0.2, cz + sideZ);
+    canalGroup.add(embankment);
+
+    const curbTop = new THREE.Mesh(new THREE.BoxGeometry(len, 0.3, 1.6), stoneMat);
+    curbTop.position.set(cx, wallH, cz + sideZ);
+    canalGroup.add(curbTop);
+
+    const railBox = { minX: VILLAGE_CANAL.startX, maxX: VILLAGE_CANAL.endX, minZ: cz + sideZ - 0.8, maxZ: cz + sideZ + 0.8, minY: 0, maxY: wallH + 1.2, type: 'Canal Embankment' };
+    buildingBoxes.push(railBox); registerCollider(railBox);
+  });
+
+  for (let px = VILLAGE_CANAL.startX + 20; px <= VILLAGE_CANAL.endX - 20; px += 45) {
+    if (Math.abs(px) < 18) continue;
+    [-w / 2 - 1.2, w / 2 + 1.2].forEach(pz => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 2.2, 8), stoneMat);
+      post.position.set(px, 1.1, cz + pz);
+      canalGroup.add(post);
+
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), lightGlowMat);
+      lamp.position.set(px, 2.3, cz + pz);
+      canalGroup.add(lamp);
+    });
+  }
+
+  const mainBridgeLen = 22.0;
+  const stationBridge = new THREE.Mesh(
+    new THREE.PlaneGeometry(16.0, mainBridgeLen),
+    makeFlyoverRoadTexture(mainBridgeLen)
+  );
+  stationBridge.rotation.x = -Math.PI / 2;
+  stationBridge.position.set(0, 1.3, cz);
+  canalGroup.add(stationBridge);
+
+  const bridgeDeckBase = new THREE.Mesh(new THREE.BoxGeometry(16.2, 0.8, mainBridgeLen), stoneMat);
+  bridgeDeckBase.position.set(0, 0.9, cz);
+  canalGroup.add(bridgeDeckBase);
+
+  [-8.1, 8.1].forEach(bx => {
+    const bridgeRail = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.4, mainBridgeLen), stoneMat);
+    bridgeRail.position.set(bx, 1.8, cz);
+    canalGroup.add(bridgeRail);
+
+    const bBox = { minX: bx - 0.4, maxX: bx + 0.4, minZ: cz - mainBridgeLen / 2, maxZ: cz + mainBridgeLen / 2, minY: 0.8, maxY: 2.8, type: 'Village Canal Station Bridge Rail' };
+    buildingBoxes.push(bBox); registerCollider(bBox);
+  });
+
+  [-280, 200].forEach(fx => {
+    const footBridge = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.4, w + 4.0), woodMat);
+    footBridge.position.set(fx, 1.2, cz);
+    canalGroup.add(footBridge);
+
+    [-1.9, 1.9].forEach(sideX => {
+      const footRail = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.1, w + 4.0), woodMat);
+      footRail.position.set(fx + sideX, 1.8, cz);
+      canalGroup.add(footRail);
+
+      const fBox = { minX: fx + sideX - 0.2, maxX: fx + sideX + 0.2, minZ: cz - w / 2 - 2, maxZ: cz + w / 2 + 2, minY: 0.8, maxY: 2.4, type: 'Canal Wooden Footbridge Rail' };
+      buildingBoxes.push(fBox); registerCollider(fBox);
+    });
+  });
+
+  scene.add(canalGroup);
+}
+
 function buildMountainLuxuryBungalow(){
   const bx = -320, bz = -890;
   const baseTerrainY = getTerrainHeight(bx, bz);
@@ -2388,9 +3562,11 @@ function toggleTvPower(){
   if(tvPlaying){
     showToast("HOUSE TV ACTIVE 📺 NOW PLAYING MEDIA 🎵");
     playMoneySound();
+    if (houseVideoElem) { houseVideoElem.muted = false; houseVideoElem.volume = 1.0; houseVideoElem.play().catch(()=>{}); }
   } else {
     drawTvOffScreen();
     showToast("TV POWERED OFF ⏸️");
+    if (houseVideoElem) { houseVideoElem.muted = true; houseVideoElem.pause(); }
   }
 }
 
@@ -2651,16 +3827,16 @@ function updatePlayerHelicopter(dt){
 
 function toggleVehicleSwitch(){
   initAudio(); if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    if(!inHelicopter){
-      inHelicopter = true; playerHeliState.engineOn = true; carState.speed = 0;
-      showToast('HELICOPTER TURBINE STARTED! FLY HIGH 🚁'); if(domDistrictName) domDistrictName.textContent = 'Piloting Stealth VIP Helicopter';
-    } else {
-      if(playerHeliState.y < getSurfaceHeight(playerHeliState.x, playerHeliState.z) + 3.0){
-        inHelicopter = false; playerHeliState.engineOn = false;
-        if(domSurfaceBadge) domSurfaceBadge.classList.remove('flying'); showToast('SWITCHED TO HUMMER CAB 🚗');
-      } else { showToast('LAND NEAR GROUND TO EXIT HELICOPTER'); }
-    }
+  if(!inHelicopter){
+    inHelicopter = true; playerHeliState.engineOn = true; carState.speed = 0;
+    showToast('HELICOPTER TURBINE STARTED! FLY HIGH 🚁'); if(domDistrictName) domDistrictName.textContent = 'Piloting Stealth VIP Helicopter';
+  } else {
+    if(playerHeliState.y < getSurfaceHeight(playerHeliState.x, playerHeliState.z) + 3.0){
+      inHelicopter = false; playerHeliState.engineOn = false;
+      if(domSurfaceBadge) domSurfaceBadge.classList.remove('flying'); showToast('SWITCHED TO HUMMER CAB 🚗');
+    } else { showToast('LAND NEAR GROUND TO EXIT HELICOPTER'); }
   }
+}
 
 function tryEnterHouse(){
   initAudio(); 
@@ -2690,7 +3866,6 @@ function tryEnterHouse(){
     inHouse = false;
 
     if(cssWrap) cssWrap.style.pointerEvents = 'none';
-
     showToast('EXITED LUXURY RESIDENCE TO TAXI 🚗');
     if(domDistrictName) domDistrictName.textContent = getDistrictNameAt(carState.x, carState.z);
     if(domHouseText) domHouseText.textContent = 'ENTER HOME ($2,000)';
@@ -2815,8 +3990,10 @@ const sharedFinMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness
 let lastDetailCheckTime = 0;
 
 function updateNearbyBuildingDetails(activeX, activeZ) {
+  if (isMobile || inHelicopter) return;
+
   const now = performance.now() * 0.001;
-  if (now - lastDetailCheckTime < 0.2) return;
+  if (now - lastDetailCheckTime < 0.25) return;
   lastDetailCheckTime = now;
 
   buildingTransforms.forEach((b, idx) => {
@@ -2876,10 +4053,10 @@ function makeGrassTexture(){
 }
 
 function addPark(bx, bz, rand){
-  const parkSize = WORLD.blockSize - 8;
+  const parkSize = WORLD.blockSize - 4;
   const tex = makeGrassTexture().clone(); tex.repeat.set(3,3); tex.needsUpdate = true;
-  const grass = new THREE.Mesh(new THREE.PlaneGeometry(parkSize, parkSize), new THREE.MeshStandardMaterial({ map:tex, roughness:0.98 }));
-  grass.rotation.x = -Math.PI/2; grass.position.set(bx, 0.02, bz);
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(parkSize, parkSize), new THREE.MeshStandardMaterial({ map:tex, roughness:0.98, polygonOffset:true, polygonOffsetFactor:-5, polygonOffsetUnits:-5 }));
+  grass.rotation.x = -Math.PI/2; grass.position.set(bx, 0.05, bz);
   grass.matrixAutoUpdate = false; grass.updateMatrix(); scene.add(grass);
   
   const treeCount = 2 + Math.floor(rand()*3);
@@ -3113,34 +4290,77 @@ function buildTwinTowers(cx, cz, baseH){
 }
 
 function buildCoast(){
-  const beachW = WORLD.blocks*WORLD.cell + 400; const beachLen = (COAST.waterStartZ - COAST.beachStartZ) + 8;
-  const beach = new THREE.Mesh(new THREE.PlaneGeometry(beachW, beachLen), new THREE.MeshStandardMaterial({ color:0xd0b880, roughness:0.98 }));
-  beach.rotation.x = -Math.PI/2; beach.position.set(0, 0.02, COAST.beachStartZ + beachLen/2 - 4);
-  beach.matrixAutoUpdate = false; beach.updateMatrix(); scene.add(beach);
+  const beachW = WORLD.blocks * WORLD.cell + 400; 
+  const beachLen = (COAST.waterStartZ - COAST.beachStartZ) + 8;
+  
+  const beach = new THREE.Mesh(
+    new THREE.PlaneGeometry(beachW, beachLen), 
+    new THREE.MeshStandardMaterial({ color: 0xd0b880, roughness: 0.95 })
+  );
+  beach.rotation.x = -Math.PI / 2; 
+  beach.position.set(0, 0.15, COAST.beachStartZ + beachLen / 2 - 4);
+  scene.add(beach);
 
-  const waterW = WORLD.blocks*WORLD.cell + 500; const waterLen = 750;
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(waterW, waterLen), new THREE.MeshStandardMaterial({ color:0x16546c, roughness:0.1, metalness:0.8, transparent:true, opacity:0.88 }));
-  water.rotation.x = -Math.PI/2; water.position.set(0, 0, COAST.waterStartZ + waterLen/2);
-  water.matrixAutoUpdate = false; water.updateMatrix(); scene.add(water);
+  const seaBed = new THREE.Mesh(
+    new THREE.PlaneGeometry(beachW + 600, 1000),
+    new THREE.MeshStandardMaterial({ color: 0x010811, roughness: 0.99 })
+  );
+  seaBed.rotation.x = -Math.PI / 2;
+  seaBed.position.set(0, -6.0, COAST.waterStartZ + 450);
+  scene.add(seaBed);
+
+  oceanWaterMaterial = createReferenceWaterMaterial({
+    speed: 1.0,
+    waveScale: 1.1,
+    waterColor: new THREE.Color(0x011425),
+    shallowColor: new THREE.Color(0x0d4757)
+  });
+
+  const waterW = WORLD.blocks * WORLD.cell + 600; 
+  const waterLen = 850;
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(waterW, waterLen, 256, 256), 
+    oceanWaterMaterial
+  );
+  water.rotation.x = -Math.PI / 2; 
+  water.position.set(0, 0.45, COAST.waterStartZ + waterLen / 2);
+  scene.add(water);
 
   const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.4 });
-  for(let bx = -180; bx <= 180; bx += 48){
-    const umbrella = new THREE.Mesh(new THREE.ConeGeometry(2.2, 1.2, 6), umbrellaMat); umbrella.position.set(bx, 1.8, COAST.beachStartZ + 15); scene.add(umbrella);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 6), trunkMat); pole.position.set(bx, 0.9, COAST.beachStartZ + 15); scene.add(pole);
+  for (let bx = -180; bx <= 180; bx += 48) {
+    const umbrella = new THREE.Mesh(new THREE.ConeGeometry(2.2, 1.2, 6), umbrellaMat); 
+    umbrella.position.set(bx, 2.0, COAST.beachStartZ + 15); 
+    scene.add(umbrella);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 6), trunkMat); 
+    pole.position.set(bx, 1.0, COAST.beachStartZ + 15); 
+    scene.add(pole);
   }
 
-  const island = new THREE.Mesh(new THREE.CylinderGeometry(COAST.islandR, COAST.islandR*1.12, COAST.islandHeight, 24), new THREE.MeshStandardMaterial({ color:0x2c5434, roughness:0.95 }));
-  island.position.set(COAST.islandX, COAST.islandHeight/2, COAST.islandZ);
-  island.matrixAutoUpdate = false; island.updateMatrix(); scene.add(island);
+  const island = new THREE.Mesh(
+    new THREE.CylinderGeometry(COAST.islandR, COAST.islandR * 1.12, COAST.islandHeight, 32), 
+    new THREE.MeshStandardMaterial({ color: 0x1f3824, roughness: 0.95 })
+  );
+  island.position.set(COAST.islandX, COAST.islandHeight / 2, COAST.islandZ);
+  scene.add(island);
 
-  const islandRoad = new THREE.Mesh(new THREE.RingGeometry(42, 58, 32), new THREE.MeshStandardMaterial({ color: 0x26282e, roughness: 0.8 }));
-  islandRoad.rotation.x = -Math.PI/2; islandRoad.position.set(COAST.islandX, COAST.islandHeight + 0.05, COAST.islandZ); scene.add(islandRoad);
+  const islandRoad = new THREE.Mesh(
+    new THREE.RingGeometry(42, 58, 32), 
+    new THREE.MeshStandardMaterial({ color: 0x26282e, roughness: 0.8 })
+  );
+  islandRoad.rotation.x = -Math.PI / 2; 
+  islandRoad.position.set(COAST.islandX, COAST.islandHeight + 0.05, COAST.islandZ); 
+  scene.add(islandRoad);
 
   buildTwinTowers(COAST.islandX, COAST.islandZ, COAST.islandHeight);
-  for(let i=0; i<16; i++){ const angle = (i/16)*Math.PI*2; const r = 68 + Math.random()*(COAST.islandR-72); const px = COAST.islandX + Math.cos(angle)*r; const pz = COAST.islandZ + Math.sin(angle)*r; addPalmTree(px, COAST.islandHeight, pz); }
+  for (let i = 0; i < 16; i++) { 
+    const angle = (i / 16) * Math.PI * 2; 
+    const r = 68 + Math.random() * (COAST.islandR - 72); 
+    const px = COAST.islandX + Math.cos(angle) * r; 
+    const pz = COAST.islandZ + Math.sin(angle) * r; 
+    addPalmTree(px, COAST.islandHeight, pz); 
+  }
   buildCurvedCableBridge();
 }
-
 function addPalmTree(x, y, z){
   const group = new THREE.Group(); const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 4.2, 6), trunkMat); trunk.position.y = 2.1; group.add(trunk);
   const frondMat = new THREE.MeshStandardMaterial({ color:0x347c3c, roughness:0.8, side:THREE.DoubleSide });
@@ -3192,7 +4412,7 @@ function buildCurvedCableBridge(){
 }
 
 function getCurvedBridgeHeight(x, z){
-  if(villageBridgePoints && villageBridgePoints.length > 0 && z <= -430 && z >= -840){
+  if(villageBridgePoints && villageBridgePoints.length > 0 && z <= -430 && z >= -840 && x >= -320 && x <= -160){
     let minDistanceSq = Infinity;
     let heightAtMin = null;
     const thresholdSq = 144.0;
@@ -3221,12 +4441,11 @@ function getCurvedBridgeHeight(x, z){
     if(minDistanceSq <= thresholdSq) return heightAtMin;
   }
 
-  if(!bridgeSamplePoints || bridgeSamplePoints.length === 0) return null;
+  if(!bridgeSamplePoints || bridgeSamplePoints.length === 0 || z < COAST.beachStartZ - 10 || z > COAST.islandZ + 20 || x < -20 || x > COAST.islandX + 40) return null;
+  
   let minDistanceSq = Infinity;
   let heightAtMin = null;
-  
-  const bridgeThreshold = 9.5; 
-  const bridgeThresholdSq = bridgeThreshold * bridgeThreshold;
+  const bridgeThresholdSq = 90.25;
 
   for(let i=0; i < bridgeSamplePoints.length - 1; i++){
     const p1 = bridgeSamplePoints[i];
@@ -3516,11 +4735,70 @@ function createDetailedTrafficMesh(type){
     [-0.75, 0.75].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.68, 2.32); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 0.72, -2.32); highGroup.add(tail); });
     addTrafficWheels(0.4, 0.28, 0x1e293b, [[-1.02, 1.38], [1.02, 1.38], [-1.02, -1.38], [1.02, -1.38]]); halfLen = 2.3; halfWidth = 1.0;
   } else if(type === 'bus'){
-    const bodyMat = new THREE.MeshStandardMaterial({ color:0x0284c7, roughness:0.25, metalness:0.4 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 10.5), bodyMat); body.position.y = 1.6; highGroup.add(body);
-    const windows = new THREE.Mesh(new THREE.BoxGeometry(2.64, 0.9, 9.0), V_MAT.glassSmoked); windows.position.set(0, 2.0, -0.2); highGroup.add(windows);
-    [-0.95, 0.95].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.75, 5.26); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 0.85, -5.26); highGroup.add(tail); });
-    addTrafficWheels(0.5, 0.35, 0x475569, [[-1.3, 3.8], [1.3, 3.8], [-1.3, -3.2], [1.3, -3.2], [-1.3, -4.2], [1.3, -4.2]]); halfLen = 5.25; halfWidth = 1.3;
+    const busBodyMat = new THREE.MeshStandardMaterial({ color:0x0284c7, roughness:0.25, metalness:0.4 });
+    const busTrimMat = new THREE.MeshStandardMaterial({ color:0x0f172a, roughness:0.6, metalness:0.8 });
+    const busGlassMat = new THREE.MeshStandardMaterial({ color:0x38bdf8, transparent:true, opacity:0.55, roughness:0.1 });
+    const busFrontGlassMat = new THREE.MeshStandardMaterial({ color:0xe0f2fe, transparent:true, opacity:0.65, roughness:0.05 });
+    const busAccentLEDMat = new THREE.MeshStandardMaterial({ color:0xff3344, emissive:0xff0022, emissiveIntensity:0.3, roughness:0.2 });
+    const busBrakeLightMat = new THREE.MeshStandardMaterial({ color:0x440005, emissive:0xff0022, emissiveIntensity:0.3, roughness:0.2 });
+    const busDisplaySignMat = new THREE.MeshStandardMaterial({ color:0x000000, emissive:0x38bdf8, emissiveIntensity:2.2 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.7, 2.7, 11.2), busBodyMat); body.position.y = 1.75; highGroup.add(body);
+    const roofAC = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 3.2), busTrimMat); roofAC.position.set(0, 3.25, -1.0); highGroup.add(roofAC);
+
+    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(2.55, 1.45, 0.1), busFrontGlassMat);
+    frontGlass.position.set(0, 2.1, 5.58);
+    frontGlass.rotation.x = -0.22;
+    highGroup.add(frontGlass);
+
+    const displaySign = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.12), busDisplaySignMat);
+    displaySign.position.set(0, 2.9, 5.52);
+    highGroup.add(displaySign);
+
+    const driverSeat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.6), busTrimMat); driverSeat.position.set(-0.8, 1.2, 4.8); highGroup.add(driverSeat);
+    const dashBoard = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.45, 0.8), busTrimMat); dashBoard.position.set(0, 1.1, 5.2); highGroup.add(dashBoard);
+    const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.03, 6, 12), busTrimMat); steeringWheel.rotation.x = -0.3; steeringWheel.position.set(-0.8, 1.4, 4.9); highGroup.add(steeringWheel);
+
+    const sideGlassL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 9.2), busGlassMat); sideGlassL.position.set(-1.32, 2.1, -0.4); highGroup.add(sideGlassL);
+    const sideGlassR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 4.2), busGlassMat); sideGlassR.position.set(1.32, 2.1, -2.8); highGroup.add(sideGlassR);
+
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
+    const doorGlassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 });
+
+    const doorFront1 = new THREE.Group();
+    const pFront1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.1, 0.72), doorMat); pFront1.position.y = 1.35; doorFront1.add(pFront1);
+    const gFront1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.60), doorGlassMat); gFront1.position.y = 1.6; doorFront1.add(gFront1);
+    doorFront1.position.set(1.33, 0, 3.8); highGroup.add(doorFront1);
+
+    const doorFront2 = doorFront1.clone();
+    doorFront2.position.set(1.33, 0, 4.55); highGroup.add(doorFront2);
+
+    const doorRear1 = doorFront1.clone();
+    doorRear1.position.set(1.33, 0, 0.2); highGroup.add(doorRear1);
+
+    const doorRear2 = doorFront1.clone();
+    doorRear2.position.set(1.33, 0, 0.95); highGroup.add(doorRear2);
+
+    highGroup.userData.busDoors = { doorFront1, doorFront2, doorRear1, doorRear2, openProgress: 0.0 };
+
+    [-1.1, 1.1].forEach(lx => {
+      const tailPod = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.42, 0.08), busBrakeLightMat);
+      tailPod.position.set(lx, 1.1, -5.62); highGroup.add(tailPod);
+
+      const accentLED = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.08), busAccentLEDMat);
+      accentLED.position.set(lx, 2.9, -5.62); highGroup.add(accentLED);
+    });
+
+    [-1.05, 1.05].forEach(hx => {
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), V_MAT.glassHeadlight);
+      head.position.set(hx, 0.85, 5.62); highGroup.add(head);
+    });
+
+    highGroup.userData.brakeLightMat = busBrakeLightMat;
+    highGroup.userData.accentLEDMat = busAccentLEDMat;
+
+    addTrafficWheels(0.52, 0.38, 0x475569, [[-1.32, 3.8], [1.32, 3.8], [-1.32, -3.2], [1.32, -3.2], [-1.32, -4.2], [1.32, -4.2]]);
+    halfLen = 5.6; halfWidth = 1.35;
   } else if(type === 'truck'){
     const cabMat = new THREE.MeshStandardMaterial({ color:0xd97706, roughness:0.3, metalness:0.5 }); const boxMat = new THREE.MeshStandardMaterial({ color:0xf1f5f9, roughness:0.6 });
     const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 2.4), cabMat); cab.position.set(0, 1.4, 2.8); highGroup.add(cab);
@@ -3560,12 +4838,17 @@ function getFlyoverHeight(x, z){
 }
 
 function getSurfaceHeight(x, z){
+  if (Math.abs(x - HYDRO_DAM.cx) <= HYDRO_DAM.wallThickness / 2 + 1.0 && Math.abs(z - HYDRO_DAM.cz) <= HYDRO_DAM.wallLength / 2) {
+    return HYDRO_DAM.roadY;
+  }
   updateFlyoverState(); const flyH = getFlyoverHeight(x, z); if(flyH !== null) return flyH;
   const bridgeH = getCurvedBridgeHeight(x, z); if(bridgeH !== null) return bridgeH;
   if(Math.hypot(x-COAST.islandX, z-COAST.islandZ) < COAST.islandR) return COAST.islandHeight; return getTerrainHeight(x, z);
 }
 
 function isPointOnRoad(x, z){
+  if (Math.abs(x - HYDRO_DAM.cx) <= HYDRO_DAM.wallThickness / 2 + 2.0 && Math.abs(z - HYDRO_DAM.cz) <= HYDRO_DAM.wallLength / 2) return true;
+  if (x >= HYDRO_DAM.cx && x <= -WORLD.half && Math.abs(z) < 18.0) return true;
   if(getSurfaceHeight(x, z) < -1.0 || getSurfaceHeight(x, z) > 1.0) return true;
   if(Math.abs(z - HIGHWAY_Z) <= 12.0) return true; 
 
@@ -3586,9 +4869,11 @@ function isPointOnRoad(x, z){
 }
 
 function getDistrictNameAt(x, z){
+  if(Math.abs(x - HYDRO_DAM.cx) < 40.0 && Math.abs(z) < HYDRO_DAM.wallLength/2 + 20) return "Hydroelectric Mountain Dam";
   if(Math.hypot(x - GROUND_HELIPAD.x, z - GROUND_HELIPAD.z) < GROUND_HELIPAD.radius + 5) return "Beach Helipad Terminal";
   if(Math.hypot(x - RACE_TRACK.cx, z - RACE_TRACK.cz) < RACE_TRACK.straightLen/2 + 80) return "International Raceway Circuit";
-  if(z <= -780 && x >= -500 && x <= -80) return "Suburban Residential Road";
+  if(z <= -780 && x >= -500 && x <= -80 && Math.abs(z - VILLAGE_CANAL.cz) > 14) return "Suburban Residential Road";
+  if(Math.abs(z - VILLAGE_CANAL.cz) <= 14 && x >= VILLAGE_CANAL.startX - 20 && x <= VILLAGE_CANAL.endX + 20) return "Suburban Village Long Canal";
   if(Math.hypot(x - STATION_POS.x, z - STATION_POS.z) < 35) return "Grand Mountain Railway Station";
   if(z <= -620 && z >= -650) return "South Mountain Tunnel Pass";
   if(z < -650 && z > -750 && x <= -180 && x >= -330) return "Mountain Skybridge";
@@ -3627,7 +4912,10 @@ function updateTrafficLights(dt){
 
 function buildTraffic(){
   const { NS, EW } = computeRoutes();
-  const routes = [ ...NS.map(pos=>({axis:'z', pos, isHighway: false})), ...EW.map(pos=>({axis:'x', pos, isHighway: false})), ];
+  const routes = [
+    ...NS.map(pos => ({ axis: 'z', pos, isHighway: false })),
+    ...EW.map(pos => ({ axis: 'x', pos, isHighway: false })),
+  ];
   
   [-11.5, -4.0, 4.0, 11.5].forEach(laneOffset => {
     routes.push({ axis: 'x', pos: HIGHWAY_Z + laneOffset, isHighway: true });
@@ -3635,7 +4923,10 @@ function buildTraffic(){
   });
 
   const types = ['bmw', 'landcruiser', 'benz', 'police', 'bus', 'truck'];
-  for(let k=0; k<52; k++){ 
+  
+  const trafficCount = (typeof isMobile !== 'undefined' && isMobile) ? 18 : 52;
+
+  for(let k = 0; k < trafficCount; k++){ 
     spawnTrafficVehicle(routes[k % routes.length], types[k % types.length]); 
   }
 }
@@ -3656,7 +4947,8 @@ function spawnTrafficVehicle(r, type){
     cruiseSpeed: r.isHighway ? 26.0 + Math.random()*10 : (type==='bus'||type==='truck' ? 12.0+Math.random()*4 : 16.0+Math.random()*6), 
     currentSpeed: 14.0,
     busDwellTimer: 0,
-    busStopCooldown: 0
+    busStopCooldown: 0,
+    passengersDropped: false
   });
 }
 
@@ -3664,13 +4956,15 @@ function updateTraffic(dt){
   const limit = WORLD.half - 12; const { NS, EW } = computeRoutes(); const crossIntersections = tcAxis => tcAxis === 'z' ? EW : NS;
   const activeX = inHelicopter ? playerHeliState.x : carState.x;
   const activeZ = inHelicopter ? playerHeliState.z : carState.z;
+  
+  const maxDistSq = (inHelicopter && isMobile) ? 10000 : 32400;
 
   trafficCars.forEach(tc=>{
     let targetSpeed = tc.cruiseSpeed;
 
     const dx = tc.mesh.position.x - activeX;
     const dz = tc.mesh.position.z - activeZ;
-    tc.mesh.visible = (dx*dx + dz*dz < 32400);
+    tc.mesh.visible = (dx*dx + dz*dz < maxDistSq);
     if (!tc.mesh.visible) return;
 
     if(tc.type === 'bus'){
@@ -3679,20 +4973,78 @@ function updateTraffic(dt){
       if(tc.busDwellTimer > 0){
         tc.busDwellTimer -= dt;
         targetSpeed = 0;
-        if(tc.busDwellTimer <= 0){
-          tc.busStopCooldown = 15.0;
-        }
-      } else if(tc.busStopCooldown <= 0){
-        const posX = tc.axis === 'x' ? tc.t : tc.laneCenter;
-        const posZ = tc.axis === 'z' ? tc.t : tc.laneCenter;
 
-        busStopsList.forEach(bs => {
-          const dist = Math.hypot(posX - bs.x, posZ - bs.z);
-          if(dist < bs.radius){
-            tc.busDwellTimer = 3.5;
-            targetSpeed = 0;
+        if(tc.mesh.userData.busDoors){
+          const bd = tc.mesh.userData.busDoors;
+          bd.openProgress = Math.min(1.0, bd.openProgress + dt * 3.0);
+          const slide = bd.openProgress * 0.38;
+          bd.doorFront1.position.z = 3.8 - slide;
+          bd.doorFront2.position.z = 4.55 + slide;
+          bd.doorRear1.position.z = 0.2 - slide;
+          bd.doorRear2.position.z = 0.95 + slide;
+        }
+
+        if(!tc.passengersDropped && tc.mesh.userData.busDoors && tc.mesh.userData.busDoors.openProgress > 0.7){
+          tc.passengersDropped = true;
+          const busX = tc.mesh.position.x;
+          const busZ = tc.mesh.position.z;
+          const sidewalkX = tc.axis === 'z' ? busX + 3.2 * tc.dir : busX;
+          const sidewalkZ = tc.axis === 'x' ? busZ + 3.2 * tc.dir : busZ;
+
+          for(let pCount = 0; pCount < 2; pCount++){
+            const pGroup = createDetailedHumanMesh(0xe0a98b, 0x3b82f6, 0x334155);
+            const px = sidewalkX + (Math.random() - 0.5) * 2.0;
+            const pz = sidewalkZ + (Math.random() - 0.5) * 2.0;
+            pGroup.position.set(px, getSurfaceHeight(px, pz), pz);
+            scene.add(pGroup);
+            pedestrians.push({
+              group: pGroup,
+              x: px,
+              z: pz,
+              dir: Math.random() * Math.PI * 2,
+              speed: 0.9 + Math.random() * 0.5,
+              walkPhase: Math.random() * Math.PI * 2
+            });
           }
-        });
+
+          showToast("CITY TRANSIT BUS DROPPED OFF PASSENGERS 🚌");
+          playMoneySound();
+        }
+
+        if(tc.busDwellTimer <= 0){
+          tc.busStopCooldown = 18.0;
+        }
+      } else {
+        if(tc.mesh.userData.busDoors && tc.mesh.userData.busDoors.openProgress > 0){
+          const bd = tc.mesh.userData.busDoors;
+          bd.openProgress = Math.max(0.0, bd.openProgress - dt * 2.5);
+          const slide = bd.openProgress * 0.38;
+          bd.doorFront1.position.z = 3.8 - slide;
+          bd.doorFront2.position.z = 4.55 + slide;
+          bd.doorRear1.position.z = 0.2 - slide;
+          bd.doorRear2.position.z = 0.95 + slide;
+          if(bd.openProgress === 0) tc.passengersDropped = false;
+        }
+
+        if(tc.busStopCooldown <= 0){
+          const posX = tc.axis === 'x' ? tc.t : tc.laneCenter;
+          const posZ = tc.axis === 'z' ? tc.t : tc.laneCenter;
+
+          busStopsList.forEach(bs => {
+            const dist = Math.hypot(posX - bs.x, posZ - bs.z);
+            if(dist < bs.radius){
+              tc.busDwellTimer = 4.5;
+              tc.passengersDropped = false;
+              targetSpeed = 0;
+            }
+          });
+        }
+      }
+
+      if(tc.mesh.userData.brakeLightMat){
+        const isBraking = tc.currentSpeed < tc.cruiseSpeed * 0.5 || targetSpeed === 0;
+        tc.mesh.userData.brakeLightMat.emissiveIntensity = isBraking ? 3.5 : 0.3;
+        tc.mesh.userData.brakeLightMat.color.setHex(isBraking ? 0xff0022 : 0x440005);
       }
     }
 
@@ -3752,7 +5104,9 @@ function buildPedestrians(){
   const shirtColors = [0x1e293b, 0x3b82f6, 0x10b981, 0xef4444, 0xf59e0b];
   const pantsColors = [0x334155, 0x0f172a, 0x475569];
 
-  for(let k=0; k<16; k++){
+  const pedCount = (typeof isMobile !== 'undefined' && isMobile) ? 6 : 16;
+
+  for(let k = 0; k < pedCount; k++){
     const skin = skinColors[k % skinColors.length];
     const shirt = shirtColors[k % shirtColors.length];
     const pants = pantsColors[k % pantsColors.length];
@@ -3763,13 +5117,24 @@ function buildPedestrians(){
     const z = roadPos.z;
     group.position.set(x, roadPos.y, z);
     scene.add(group);
-    pedestrians.push({ group, x, z, dir: Math.random()*Math.PI*2, speed: 0.8+Math.random()*0.6, walkPhase: Math.random()*Math.PI*2 });
+    pedestrians.push({ 
+      group, 
+      x, 
+      z, 
+      dir: Math.random() * Math.PI * 2, 
+      speed: 0.8 + Math.random() * 0.6, 
+      walkPhase: Math.random() * Math.PI * 2 
+    });
   }
 }
-
 function updatePedestrians(dt){
-  const activeX = inHelicopter ? playerHeliState.x : carState.x;
-  const activeZ = inHelicopter ? playerHeliState.z : carState.z;
+  if (inHelicopter) {
+    pedestrians.forEach(p => { p.group.visible = false; });
+    return;
+  }
+
+  const activeX = carState.x;
+  const activeZ = carState.z;
 
   pedestrians.forEach(p=>{
     const dx = p.x - activeX;
@@ -3817,7 +5182,9 @@ function getValidRoadPosition(){
 }
 
 const ALL_PLACES = [
+  { name: "Hydroelectric Water Dam", pos: new THREE.Vector3(HYDRO_DAM.cx, HYDRO_DAM.roadY, HYDRO_DAM.cz), desc: "300m West Mountain Water Dam (Anime.js Controlled)" },
   { name: "Suburban Villa Neighborhood", pos: new THREE.Vector3(0, 0.1, SUBURBAN_ZONE.roadZ), desc: "Linear Residential Row (150m North)" },
+  { name: "Suburban Village Long Canal", pos: new THREE.Vector3(0, 0.1, VILLAGE_CANAL.cz), desc: "Long Scenic Canal Behind Village" },
   { name: "International Raceway Circuit", pos: new THREE.Vector3(RACE_TRACK.cx, 0.1, RACE_TRACK.cz), desc: "Full 3D Circuit (250 KM/H Top Speed)" },
   { name: "Raceway City Gateway", pos: new THREE.Vector3(WORLD.half + 40, 0.1, 0), desc: "High-Speed Border Wall Entrance Arch" },
   { name: "Grand Railway Station", pos: new THREE.Vector3(0, 0.1, -855), desc: "Mountain Express Terminal" },
@@ -3857,6 +5224,7 @@ function initCabDutySystem(){
   domBannerAccept.addEventListener('click', acceptPendingRequest);
   domBannerDecline.addEventListener('click', declinePendingRequest);
   if(domTvToggleBtn) domTvToggleBtn.addEventListener('click', toggleTvPower);
+  if(domToggleDamGatesBtn) domToggleDamGatesBtn.addEventListener('click', toggleDamGates);
 }
 
 function initMultiplayerUI(){
@@ -4234,7 +5602,7 @@ function checkCollisions(nx, nz, ny){
 
   for(let i=0; i<trafficCars.length; i++){
     const tc = trafficCars[i]; let tcPos = tc.mesh.position;
-    if(Math.abs(ny - tcPos.y) < 2.5){
+    if(Math.abs(nx - tcPos.x) < 12.0 && Math.abs(nz - tcPos.z) < 12.0 && Math.abs(ny - tcPos.y) < 2.5){
       let minDist = (tc.mesh.userData.halfLen || 2.2) + 1.1;
       if(Math.hypot(nx - tcPos.x, nz - tcPos.z) < minDist){
         return { hit: true, type: tc.type || 'vehicle' };
@@ -4244,7 +5612,7 @@ function checkCollisions(nx, nz, ny){
 
   for(let i=0; i<pedestrians.length; i++){
     const p = pedestrians[i];
-    if(Math.abs(ny - p.group.position.y) < 2.0){
+    if(Math.abs(nx - p.x) < 8.0 && Math.abs(nz - p.z) < 8.0 && Math.abs(ny - p.group.position.y) < 2.0){
       if(Math.hypot(nx - p.x, nz - p.z) < 1.2){
         return { hit: true, type: 'pedestrian' };
       }
@@ -4268,7 +5636,8 @@ let currentSurfaceHeight = 0, leftIndicatorOn = false, rightIndicatorOn = false,
 function updateCar(dt){
   if(inHelicopter || inHouse || inTrain) return;
 
-  const onRoad = isPointOnRoad(carState.x, carState.z); const onBridge = getCurvedBridgeHeight(carState.x, carState.z) !== null;
+  const onRoad = isPointOnRoad(carState.x, carState.z); 
+  const onBridge = getCurvedBridgeHeight(carState.x, carState.z) !== null;
   const onRaceTrack = raceTrackSamplePoints && raceTrackSamplePoints.length > 0 && Math.hypot(carState.x - RACE_TRACK.cx, carState.z - RACE_TRACK.cz) < RACE_TRACK.radius + RACE_TRACK.straightLen/2 + 70;
 
   if(domDistrictName) domDistrictName.textContent = getDistrictNameAt(carState.x, carState.z);
@@ -4348,24 +5717,26 @@ function updateCar(dt){
     }
   });
 
-  const dx = Math.sin(carState.heading) * carState.speed * dt; const dz = Math.cos(carState.heading) * carState.speed * dt;
-  const nx = carState.x + dx; const nz = carState.z + dz;
+  const dx = Math.sin(carState.heading) * carState.speed * dt; 
+  const dz = Math.cos(carState.heading) * carState.speed * dt;
+  const nx = carState.x + dx; 
+  const nz = carState.z + dz;
 
   const colX = checkCollisions(nx, carState.z, currentSurfaceHeight); if(!colX.hit) carState.x = nx; else { triggerCrashFeedback(colX.type); }
   const colZ = checkCollisions(carState.x, nz, currentSurfaceHeight); if(!colZ.hit) carState.z = nz; else { triggerCrashFeedback(colZ.type); }
 
   currentSurfaceHeight += (avgWheelH - currentSurfaceHeight) * Math.min(1, dt * 16);
 
-  const frontH = (hFL + hFR) / 2;
-  const rearH = (hRL + hRR) / 2;
-  const leftH = (hFL + hRL) / 2;
-  const rightH = (hFR + hRR) / 2;
+  const frontH = (hFL + hFR) / 2.0;
+  const rearH = (hRL + hRR) / 2.0;
+  const leftH = (hFL + hRL) / 2.0;
+  const rightH = (hFR + hRR) / 2.0;
 
-  const targetPitch = Math.atan2(rearH - frontH, wheelBaseHalf * 2);
-  const targetRoll = Math.atan2(leftH - rightH, trackWidthHalf * 2);
+  const targetPitch = Math.atan2(frontH - rearH, wheelBaseHalf * 2.0);
+  const targetRoll = Math.atan2(rightH - leftH, trackWidthHalf * 2.0);
 
-  carState.pitch += (targetPitch - carState.pitch) * Math.min(1, dt * 12);
-  carState.roll += (targetRoll - carState.roll) * Math.min(1, dt * 12);
+  carState.pitch += (targetPitch - carState.pitch) * Math.min(1.0, dt * 12.0);
+  carState.roll += (targetRoll - carState.roll) * Math.min(1.0, dt * 12.0);
 
   car.position.set(carState.x, currentSurfaceHeight, carState.z);
   car.rotation.set(carState.pitch, carState.heading, carState.roll, 'YXZ');
@@ -4412,11 +5783,14 @@ function updateCar(dt){
 }
 
 function updateVehicleInteractionPrompt(){
-  if(!domSwitchBtn || !domSwitchIcon || !domSwitchText || !domHouseSwitchBtn || !domTrainSwitchBtn) return;
+  if(!domSwitchBtn || !domSwitchIcon || !domSwitchText || !domHouseSwitchBtn || !domTrainSwitchBtn || !domRaceSwitchBtn || !domDamSwitchBtn) return;
 
   if(inTrain){
     domSwitchBtn.classList.remove('show');
     domHouseSwitchBtn.classList.remove('show');
+    domRaceSwitchBtn.classList.remove('show');
+    domDamSwitchBtn.classList.remove('show');
+    if(domDamHudPanel) domDamHudPanel.classList.remove('show');
     domTrainIcon.textContent = '🚪 🚉';
     domTrainText.textContent = 'EXIT TRAIN';
     domTrainSwitchBtn.classList.add('show');
@@ -4426,6 +5800,9 @@ function updateVehicleInteractionPrompt(){
   if(inHouse){
     domSwitchBtn.classList.remove('show');
     domTrainSwitchBtn.classList.remove('show');
+    domRaceSwitchBtn.classList.remove('show');
+    domDamSwitchBtn.classList.remove('show');
+    if(domDamHudPanel) domDamHudPanel.classList.remove('show');
     domHouseIcon.textContent = '🚪 🚗';
     domHouseText.textContent = 'EXIT HOME';
     domHouseSwitchBtn.classList.add('show');
@@ -4473,11 +5850,36 @@ function updateVehicleInteractionPrompt(){
   } else if(!inTrain){
     domTrainSwitchBtn.classList.remove('show');
   }
+
+  const distToRacewayGate = Math.hypot(activeX - (WORLD.half + 40), activeZ - 0);
+  if(distToRacewayGate < 28.0 && !inHelicopter && !raceState.active){
+    domRaceIcon.textContent = '🏎️ 🏁';
+    domRaceText.textContent = 'JOIN RACE';
+    domRaceSwitchBtn.classList.add('show');
+  } else {
+    domRaceSwitchBtn.classList.remove('show');
+  }
+
+  const distToDam = Math.hypot(activeX - HYDRO_DAM.cx, activeZ - HYDRO_DAM.cz);
+  if(distToDam < 120.0){
+    domDamIcon.textContent = '🌊 ⚙️';
+    domDamText.textContent = 'DAM CONTROLS';
+    domDamSwitchBtn.classList.add('show');
+    if(domDamHudPanel) domDamHudPanel.classList.add('show');
+  } else {
+    domDamSwitchBtn.classList.remove('show');
+    if(domDamHudPanel) domDamHudPanel.classList.remove('show');
+  }
 }
 
 const keys = {}; let cameraMode = 0, timeScale = 1, dragYaw = 0, dragPitch = 0, isDragging = false, dragLastX = 0, dragLastY = 0;
 
 function setupInput(){
+  window.addEventListener('touchstart', function onFirstTouch() {
+    document.body.classList.add('is-touch');
+    window.removeEventListener('touchstart', onFirstTouch);
+  }, { passive: true });
+
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase(); keys[k] = true;
     if(k === 'c') cycleCameraMode();
@@ -4489,13 +5891,25 @@ function setupInput(){
 
   const bind = (id, key) => {
     const el = document.getElementById(id); if(!el) return;
-    ['touchstart', 'mousedown'].forEach(ev => el.addEventListener(ev, e => {
-      e.preventDefault(); keys[key] = true; initAudio();
+    const press = e => {
+      e.preventDefault();
+      keys[key] = true;
+      el.classList.add('active');
+      initAudio();
       if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    }));
-    ['touchend', 'mouseup', 'touchcancel', 'mouseleave'].forEach(ev => el.addEventListener(ev, e => {
-      e.preventDefault(); keys[key] = false;
-    }));
+    };
+    const release = e => {
+      e.preventDefault();
+      keys[key] = false;
+      el.classList.remove('active');
+    };
+
+    el.addEventListener('touchstart', press, { passive: false });
+    el.addEventListener('touchend', release, { passive: false });
+    el.addEventListener('touchcancel', release, { passive: false });
+    el.addEventListener('mousedown', press);
+    el.addEventListener('mouseup', release);
+    el.addEventListener('mouseleave', release);
   };
 
   bind('btnLeft', 'a');
@@ -4505,14 +5919,31 @@ function setupInput(){
   bind('btnHeliUp', ' ');
   bind('btnHeliDown', 'shift');
 
-  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('startBtn').addEventListener('click', () => {
+    startGame();
+    if (isMobile) toggleFullscreen();
+  });
+
+  if (domHudToggleBtn) {
+    domHudToggleBtn.addEventListener('click', () => {
+      domHudContainer.classList.toggle('hud-collapsed');
+      showToast(domHudContainer.classList.contains('hud-collapsed') ? 'UI HIDDEN 👁️' : 'UI SHOWN 👁️');
+    });
+  }
+
+  if (domFullscreenBtn) {
+    domFullscreenBtn.addEventListener('click', toggleFullscreen);
+  }
+
   document.getElementById('vehicleSwitchBtn').addEventListener('click', toggleVehicleSwitch);
   document.getElementById('houseSwitchBtn').addEventListener('click', tryEnterHouse);
   if(domTrainSwitchBtn) domTrainSwitchBtn.addEventListener('click', tryEnterTrain);
+  if(domRaceSwitchBtn) domRaceSwitchBtn.addEventListener('click', startRaceGame);
+  if(domDamSwitchBtn) domDamSwitchBtn.addEventListener('click', toggleDamGates);
   if(domCamBtn) domCamBtn.addEventListener('click', cycleCameraMode);
 
   window.addEventListener('pointerdown', e => {
-    if (e.target && e.target.closest('#local-tv-container, .outdoor-tv-container')) {
+    if (e.target && e.target.closest('#local-tv-container, .outdoor-tv-container, #mobileControls, #damHudPanel')) {
       return;
     }
 
@@ -4587,6 +6018,11 @@ function startGame(){
 const camPos = new THREE.Vector3(); const camLook = new THREE.Vector3();
 
 function updateCamera(dt){
+  if (!inHelicopter && !inHouse && !inTrain && !isDragging) {
+    dragYaw += (0 - dragYaw) * Math.min(1.0, dt * 3.5);
+    dragPitch += (0 - dragPitch) * Math.min(1.0, dt * 3.5);
+  }
+
   if(inTrain && mountainTrainCars.length > 0){
     scene.fog.near = 200;
     scene.fog.far = 1200;
@@ -4654,12 +6090,12 @@ function updateCamera(dt){
   
   if(!inHelicopter){
     camera.near = (cameraMode === 2 ? 0.05 : 0.1);
-    camera.far = 2400;
+    camera.far = isMobile ? 1000 : 2400;
     camera.fov = (cameraMode === 2 ? 72 : 60 + speedRatio * 18);
     camera.updateProjectionMatrix();
   } else {
     camera.near = 0.2;
-    camera.far = 1800;
+    camera.far = isMobile ? Math.min(550, 380 + playerHeliState.y * 1.8) : 1800;
     camera.fov = 65;
     camera.updateProjectionMatrix();
   }
@@ -4720,204 +6156,298 @@ function updateDayNight(dt){
   } else if(inTrain){
     scene.fog.near = 200;
     scene.fog.far = 1200;
-  } else if(inHelicopter){
-    const altRatio = THREE.MathUtils.clamp((playerHeliState.y - 10) / 100, 0, 1);
-    scene.fog.near = 180 + altRatio * 180;
-    scene.fog.far = 1200 + altRatio * 350;
-  } else {
-    scene.fog.near = 350;
-    scene.fog.far = 2200;
-  }
+} else if(inHelicopter){
+        const altRatio = THREE.MathUtils.clamp((playerHeliState.y - 10) / 100, 0, 1);
+        scene.fog.near = isMobile ? 80 : 180 + altRatio * 180;
+        scene.fog.far = isMobile ? (camera.far - 30) : (1200 + altRatio * 350);
+      } else {
+        scene.fog.near = 350;
+        scene.fog.far = isMobile ? 1000 : 2200;
+      }
 
-  const activeX = inHelicopter ? playerHeliState.x : carState.x;
-  const activeZ = inHelicopter ? playerHeliState.z : carState.z;
+      const activeX = inHelicopter ? playerHeliState.x : carState.x;
+      const activeZ = inHelicopter ? playerHeliState.z : carState.z;
 
-  const glowAmt = THREE.MathUtils.clamp((0.25 - sunHeight) / 0.5, 0, 1);
-  buildingMats.forEach(m=>{ if('emissiveIntensity' in m) m.emissiveIntensity = glowAmt * 0.85; });
-  lampGlows.forEach(g=> {
-    const d = Math.hypot(g.parent.position.x - activeX, g.parent.position.z - activeZ);
-    g.visible = (d < 350);
-    g.material.opacity = glowAmt*0.8;
-  });
-  car.userData.headlights.forEach(sl=> sl.intensity = (glowAmt * 12.0) * (inHelicopter || inHouse || inTrain ? 0 : 1));
+      const glowAmt = THREE.MathUtils.clamp((0.25 - sunHeight) / 0.5, 0, 1);
+      buildingMats.forEach(m=>{ if('emissiveIntensity' in m) m.emissiveIntensity = glowAmt * 0.85; });
+      
+      if(!inHelicopter || playerHeliState.y < 35){
+        lampGlows.forEach(g=> {
+          const d = Math.hypot(g.parent.position.x - activeX, g.parent.position.z - activeZ);
+          g.visible = (d < 350);
+          g.material.opacity = glowAmt*0.8;
+        });
+      }
+      car.userData.headlights.forEach(sl=> sl.intensity = (glowAmt * 12.0) * (inHelicopter || inHouse || inTrain ? 0 : 1));
 
-  const hours = Math.floor(dayTime*24), mins = Math.floor((dayTime*24*60)%60);
-  if(domClockTime) domClockTime.textContent = String(hours).padStart(2,'0')+':'+String(mins).padStart(2,'0');
-}
-
-const mmCanvas = document.getElementById('minimap'); const mmCtx = mmCanvas.getContext('2d');
-function drawMinimap(){
-  const S = mmCanvas.width; mmCtx.clearRect(0,0,S,S); mmCtx.save(); mmCtx.translate(S/2,S/2);
-  const activeX = inHouse ? HOUSE_INTERIOR_POS.x : (inTrain ? mountainTrainMesh.position.x : (inHelicopter ? playerHeliState.x : carState.x));
-  const activeZ = inHouse ? HOUSE_INTERIOR_POS.z : (inTrain ? mountainTrainMesh.position.z : (inHelicopter ? playerHeliState.z : carState.z));
-  const activeHeading = (inHouse || inTrain) ? 0 : (inHelicopter ? playerHeliState.heading : carState.heading);
-
-  mmCtx.rotate(-activeHeading); const scale = S / 340;
-  mmCtx.fillStyle = 'rgba(56,242,192,0.35)';
-  buildingBoxes.forEach(b=>{
-    const x = ((b.minX+b.maxX)/2 - activeX) * scale; const z = ((b.minZ+b.maxZ)/2 - activeZ) * scale;
-    if(Math.abs(x) < S/2 && Math.abs(z) < S/2) mmCtx.fillRect(x-2, z-2, 4, 4);
-  });
-
-  let navTargetPos = null;
-  if(cabState.activeRequest || cabState.hasPassenger){
-    navTargetPos = cabState.hasPassenger ? cabState.dropoffPos : cabState.pickupPos;
-  } else if(customNavTarget){
-    navTargetPos = customNavTarget;
-  }
-
-  if(navTargetPos && !inHouse && !inTrain){
-    const targetX = (navTargetPos.x - activeX) * scale;
-    const targetZ = (navTargetPos.z - activeZ) * scale;
-
-    mmCtx.beginPath();
-    mmCtx.moveTo(0, 0);
-    mmCtx.lineTo(targetX, targetZ);
-    mmCtx.strokeStyle = cabState.hasPassenger ? '#f59e0b' : '#38f2c0';
-    mmCtx.lineWidth = 3.5;
-    mmCtx.setLineDash([6, 4]);
-    mmCtx.stroke();
-    mmCtx.setLineDash([]);
-
-    if(Math.abs(targetX) < S/2 && Math.abs(targetZ) < S/2){
-      mmCtx.fillStyle = cabState.hasPassenger ? '#f59e0b' : '#10b981';
-      mmCtx.beginPath(); mmCtx.arc(targetX, targetZ, 5, 0, Math.PI*2); mmCtx.fill();
-      mmCtx.strokeStyle = '#fff'; mmCtx.lineWidth = 2; mmCtx.stroke();
+      const hours = Math.floor(dayTime*24), mins = Math.floor((dayTime*24*60)%60);
+      if(domClockTime) domClockTime.textContent = String(hours).padStart(2,'0')+':'+String(mins).padStart(2,'0');
     }
-  }
 
-  mmCtx.font = '700 8.5px "JetBrains Mono", sans-serif'; mmCtx.textAlign = 'center';
-  DISTRICT_MAP_LABELS.forEach(lbl=>{
-    const rx = (lbl.x - activeX) * scale, rz = (lbl.z - activeZ) * scale;
-    if(Math.abs(rx) < S/2 - 10 && Math.abs(rz) < S/2 - 10){
-      mmCtx.strokeStyle = '#000'; mmCtx.lineWidth = 2; mmCtx.strokeText(lbl.name, rx, rz);
-      mmCtx.fillStyle = lbl.color; mmCtx.fillText(lbl.name, rx, rz);
+    const mmCanvas = document.getElementById('minimap'); const mmCtx = mmCanvas.getContext('2d');
+    function drawMinimap(){
+      const S = mmCanvas.width; mmCtx.clearRect(0,0,S,S); mmCtx.save(); mmCtx.translate(S/2,S/2);
+      const activeX = inHouse ? HOUSE_INTERIOR_POS.x : (inTrain ? mountainTrainMesh.position.x : (inHelicopter ? playerHeliState.x : carState.x));
+      const activeZ = inHouse ? HOUSE_INTERIOR_POS.z : (inTrain ? mountainTrainMesh.position.z : (inHelicopter ? playerHeliState.z : carState.z));
+      const activeHeading = (inHouse || inTrain) ? 0 : (inHelicopter ? playerHeliState.heading : carState.heading);
+
+      mmCtx.rotate(-activeHeading); const scale = S / 340;
+      mmCtx.fillStyle = 'rgba(56,242,192,0.35)';
+      buildingBoxes.forEach(b=>{
+        const x = ((b.minX+b.maxX)/2 - activeX) * scale; const z = ((b.minZ+b.maxZ)/2 - activeZ) * scale;
+        if(Math.abs(x) < S/2 && Math.abs(z) < S/2) mmCtx.fillRect(x-2, z-2, 4, 4);
+      });
+
+      let navTargetPos = null;
+      if(cabState.activeRequest || cabState.hasPassenger){
+        navTargetPos = cabState.hasPassenger ? cabState.dropoffPos : cabState.pickupPos;
+      } else if(customNavTarget){
+        navTargetPos = customNavTarget;
+      }
+
+      if(navTargetPos && !inHouse && !inTrain){
+        const targetX = (navTargetPos.x - activeX) * scale;
+        const targetZ = (navTargetPos.z - activeZ) * scale;
+
+        mmCtx.beginPath();
+        mmCtx.moveTo(0, 0);
+        mmCtx.lineTo(targetX, targetZ);
+        mmCtx.strokeStyle = cabState.hasPassenger ? '#f59e0b' : '#38f2c0';
+        mmCtx.lineWidth = 3.5;
+        mmCtx.setLineDash([6, 4]);
+        mmCtx.stroke();
+        mmCtx.setLineDash([]);
+
+        if(Math.abs(targetX) < S/2 && Math.abs(targetZ) < S/2){
+          mmCtx.fillStyle = cabState.hasPassenger ? '#f59e0b' : '#10b981';
+          mmCtx.beginPath(); mmCtx.arc(targetX, targetZ, 5, 0, Math.PI*2); mmCtx.fill();
+          mmCtx.strokeStyle = '#fff'; mmCtx.lineWidth = 2; mmCtx.stroke();
+        }
+      }
+
+      mmCtx.font = '700 8.5px "JetBrains Mono", sans-serif'; mmCtx.textAlign = 'center';
+      DISTRICT_MAP_LABELS.forEach(lbl=>{
+        const rx = (lbl.x - activeX) * scale, rz = (lbl.z - activeZ) * scale;
+        if(Math.abs(rx) < S/2 - 10 && Math.abs(rz) < S/2 - 10){
+          mmCtx.strokeStyle = '#000'; mmCtx.lineWidth = 2; mmCtx.strokeText(lbl.name, rx, rz);
+          mmCtx.fillStyle = lbl.color; mmCtx.fillText(lbl.name, rx, rz);
+        }
+      });
+
+      const hx = (playerHeliState.x - activeX) * scale, hz = (playerHeliState.z - activeZ) * scale;
+      if(Math.abs(hx) < S/2 && Math.abs(hz) < S/2 && !inHouse && !inTrain){
+        mmCtx.fillStyle = '#f59e0b'; mmCtx.beginPath(); mmCtx.arc(hx, hz, 4, 0, Math.PI*2); mmCtx.fill();
+        mmCtx.strokeStyle = '#fff'; mmCtx.lineWidth = 1.5; mmCtx.stroke();
+      }
+
+      mmCtx.restore();
+      mmCtx.fillStyle = inTrain ? '#38bdf8' : (inHouse ? '#a855f7' : (inHelicopter ? '#f59e0b' : '#ffb454'));
+      mmCtx.beginPath(); mmCtx.moveTo(S/2, S/2-5); mmCtx.lineTo(S/2-4, S/2+4); mmCtx.lineTo(S/2+4, S/2+4); mmCtx.fill();
     }
-  });
 
-  const hx = (playerHeliState.x - activeX) * scale, hz = (playerHeliState.z - activeZ) * scale;
-  if(Math.abs(hx) < S/2 && Math.abs(hz) < S/2 && !inHouse && !inTrain){
-    mmCtx.fillStyle = '#f59e0b'; mmCtx.beginPath(); mmCtx.arc(hx, hz, 4, 0, Math.PI*2); mmCtx.fill();
-    mmCtx.strokeStyle = '#fff'; mmCtx.lineWidth = 1.5; mmCtx.stroke();
-  }
+    function drawFullMap(){
+      if(!fullMapCtx || !domFullMapCanvas) return;
+      const W = domFullMapCanvas.width, H = domFullMapCanvas.height;
+      fullMapCtx.clearRect(0, 0, W, H);
 
-  mmCtx.restore();
-  mmCtx.fillStyle = inTrain ? '#38bdf8' : (inHouse ? '#a855f7' : (inHelicopter ? '#f59e0b' : '#ffb454'));
-  mmCtx.beginPath(); mmCtx.moveTo(S/2, S/2-5); mmCtx.lineTo(S/2-4, S/2+4); mmCtx.lineTo(S/2+4, S/2+4); mmCtx.fill();
-}
+      const activeX = inHouse ? HOUSE_INTERIOR_POS.x : (inTrain ? mountainTrainMesh.position.x : (inHelicopter ? playerHeliState.x : carState.x));
+      const activeZ = inHouse ? HOUSE_INTERIOR_POS.z : (inTrain ? mountainTrainMesh.position.z : (inHelicopter ? playerHeliState.z : carState.z));
+      const scale = Math.min(W, H) / (WORLD.half * 2.2);
+      const centerX = W / 2, centerY = H / 2;
 
-function drawFullMap(){
-  if(!fullMapCtx || !domFullMapCanvas) return;
-  const W = domFullMapCanvas.width, H = domFullMapCanvas.height;
-  fullMapCtx.clearRect(0, 0, W, H);
+      fullMapCtx.strokeStyle = 'rgba(56,189,248,0.22)';
+      fullMapCtx.lineWidth = 6;
+      const { NS, EW } = computeRoutes();
+      NS.forEach(rx => {
+        const mapX = centerX + (rx - activeX) * scale;
+        fullMapCtx.beginPath(); fullMapCtx.moveTo(mapX, 0); fullMapCtx.lineTo(mapX, H); fullMapCtx.stroke();
+      });
+      EW.forEach(rz => {
+        const mapZ = centerY + (rz - activeZ) * scale;
+        fullMapCtx.beginPath(); fullMapCtx.moveTo(0, mapZ); fullMapCtx.lineTo(W, mapZ); fullMapCtx.stroke();
+      });
 
-  const activeX = inHouse ? HOUSE_INTERIOR_POS.x : (inTrain ? mountainTrainMesh.position.x : (inHelicopter ? playerHeliState.x : carState.x));
-  const activeZ = inHouse ? HOUSE_INTERIOR_POS.z : (inTrain ? mountainTrainMesh.position.z : (inHelicopter ? playerHeliState.z : carState.z));
-  const scale = Math.min(W, H) / (WORLD.half * 2.2);
-  const centerX = W / 2, centerY = H / 2;
+      fullMapCtx.fillStyle = 'rgba(56,242,192,0.28)';
+      buildingBoxes.forEach(b => {
+        const bx = centerX + ((b.minX + b.maxX)/2 - activeX) * scale;
+        const bz = centerY + ((b.minZ + b.maxZ)/2 - activeZ) * scale;
+        const bw = (b.maxX - b.minX) * scale;
+        const bd = (b.maxZ - b.minZ) * scale;
+        fullMapCtx.fillRect(bx - bw/2, bz - bd/2, bw, bd);
+      });
 
-  fullMapCtx.strokeStyle = 'rgba(56,189,248,0.22)';
-  fullMapCtx.lineWidth = 6;
-  const { NS, EW } = computeRoutes();
-  NS.forEach(rx => {
-    const mapX = centerX + (rx - activeX) * scale;
-    fullMapCtx.beginPath(); fullMapCtx.moveTo(mapX, 0); fullMapCtx.lineTo(mapX, H); fullMapCtx.stroke();
-  });
-  EW.forEach(rz => {
-    const mapZ = centerY + (rz - activeZ) * scale;
-    fullMapCtx.beginPath(); fullMapCtx.moveTo(0, mapZ); fullMapCtx.lineTo(W, mapZ); fullMapCtx.stroke();
-  });
+      let navTargetPos = null;
+      if(cabState.activeRequest || cabState.hasPassenger){
+        navTargetPos = cabState.hasPassenger ? cabState.dropoffPos : cabState.pickupPos;
+      } else if(customNavTarget){
+        navTargetPos = customNavTarget;
+      }
 
-  fullMapCtx.fillStyle = 'rgba(56,242,192,0.28)';
-  buildingBoxes.forEach(b => {
-    const bx = centerX + ((b.minX + b.maxX)/2 - activeX) * scale;
-    const bz = centerY + ((b.minZ + b.maxZ)/2 - activeZ) * scale;
-    const bw = (b.maxX - b.minX) * scale;
-    const bd = (b.maxZ - b.minZ) * scale;
-    fullMapCtx.fillRect(bx - bw/2, bz - bd/2, bw, bd);
-  });
+      if(navTargetPos && !inHouse && !inTrain){
+        const tx = centerX + (navTargetPos.x - activeX) * scale;
+        const tz = centerY + (navTargetPos.z - activeZ) * scale;
 
-  let navTargetPos = null;
-  if(cabState.activeRequest || cabState.hasPassenger){
-    navTargetPos = cabState.hasPassenger ? cabState.dropoffPos : cabState.pickupPos;
-  } else if(customNavTarget){
-    navTargetPos = customNavTarget;
-  }
+        fullMapCtx.beginPath();
+        fullMapCtx.moveTo(centerX, centerY);
+        fullMapCtx.lineTo(tx, tz);
+        fullMapCtx.strokeStyle = '#10b981';
+        fullMapCtx.lineWidth = 5;
+        fullMapCtx.setLineDash([8, 6]);
+        fullMapCtx.stroke();
+        fullMapCtx.setLineDash([]);
 
-  if(navTargetPos && !inHouse && !inTrain){
-    const tx = centerX + (navTargetPos.x - activeX) * scale;
-    const tz = centerY + (navTargetPos.z - activeZ) * scale;
+        fullMapCtx.fillStyle = '#10b981';
+        fullMapCtx.beginPath(); fullMapCtx.arc(tx, tz, 10, 0, Math.PI*2); fullMapCtx.fill();
+        fullMapCtx.strokeStyle = '#fff'; fullMapCtx.lineWidth = 2.5; fullMapCtx.stroke();
+      }
 
-    fullMapCtx.beginPath();
-    fullMapCtx.moveTo(centerX, centerY);
-    fullMapCtx.lineTo(tx, tz);
-    fullMapCtx.strokeStyle = '#10b981';
-    fullMapCtx.lineWidth = 5;
-    fullMapCtx.setLineDash([8, 6]);
-    fullMapCtx.stroke();
-    fullMapCtx.setLineDash([]);
+      ALL_PLACES.forEach(p => {
+        const px = centerX + (p.pos.x - activeX) * scale;
+        const pz = centerY + (p.pos.z - activeZ) * scale;
 
-    fullMapCtx.fillStyle = '#10b981';
-    fullMapCtx.beginPath(); fullMapCtx.arc(tx, tz, 10, 0, Math.PI*2); fullMapCtx.fill();
-    fullMapCtx.strokeStyle = '#fff'; fullMapCtx.lineWidth = 2.5; fullMapCtx.stroke();
-  }
+        fullMapCtx.fillStyle = '#f59e0b';
+        fullMapCtx.beginPath(); fullMapCtx.arc(px, pz, 7, 0, Math.PI*2); fullMapCtx.fill();
+        fullMapCtx.font = '700 12px "Bebas Neue", sans-serif';
+        fullMapCtx.fillStyle = '#fff';
+        fullMapCtx.textAlign = 'center';
+        fullMapCtx.fillText(p.name, px, pz - 10);
+      });
 
-  ALL_PLACES.forEach(p => {
-    const px = centerX + (p.pos.x - activeX) * scale;
-    const pz = centerY + (p.pos.z - activeZ) * scale;
+      fullMapCtx.fillStyle = '#38f2c0';
+      fullMapCtx.beginPath(); fullMapCtx.arc(centerX, centerY, 9, 0, Math.PI*2); fullMapCtx.fill();
+      fullMapCtx.strokeStyle = '#fff'; fullMapCtx.lineWidth = 3; fullMapCtx.stroke();
+    }
 
-    fullMapCtx.fillStyle = '#f59e0b';
-    fullMapCtx.beginPath(); fullMapCtx.arc(px, pz, 7, 0, Math.PI*2); fullMapCtx.fill();
-    fullMapCtx.font = '700 12px "Bebas Neue", sans-serif';
-    fullMapCtx.fillStyle = '#fff';
-    fullMapCtx.textAlign = 'center';
-    fullMapCtx.fillText(p.name, px, pz - 10);
-  });
+    function updateOutdoorTVAudio(activeX, activeZ) {
+      if (beachVideoElem) {
+        const beachX = -85.0;
+        const beachZ = COAST.beachStartZ + 25;
+        const distBeach = Math.hypot(activeX - beachX, activeZ - beachZ);
 
-  fullMapCtx.fillStyle = '#38f2c0';
-  fullMapCtx.beginPath(); fullMapCtx.arc(centerX, centerY, 9, 0, Math.PI*2); fullMapCtx.fill();
-  fullMapCtx.strokeStyle = '#fff'; fullMapCtx.lineWidth = 3; fullMapCtx.stroke();
-}
+        if (distBeach <= 10.0 && !inHouse && !inTrain) {
+          const vol = Math.max(0.0, Math.min(1.0, 1.0 - (distBeach / 10.0)));
+          beachVideoElem.muted = false;
+          beachVideoElem.volume = vol;
+          beachVideoElem.play().catch(()=>{});
+        } else {
+          beachVideoElem.muted = true;
+          beachVideoElem.volume = 0.0;
+        }
+      }
 
-function loop(timestampSec){
-  requestAnimationFrame(loop);
-  const dt = Math.min(clockDelta.getDelta(), 0.016);
-  const curTime = (timestampSec || performance.now()) * 0.001;
+      if (mountainVideoElem) {
+        const mtnX = 120.0;
+        const mtnZ = -1020.0;
+        const distMtn = Math.hypot(activeX - mtnX, activeZ - mtnZ);
 
-  const activeX = inHelicopter ? playerHeliState.x : carState.x;
-  const activeZ = inHelicopter ? playerHeliState.z : carState.z;
+        if (distMtn <= 10.0 && !inHouse && !inTrain) {
+          const vol = Math.max(0.0, Math.min(1.0, 1.0 - (distMtn / 10.0)));
+          mountainVideoElem.muted = false;
+          mountainVideoElem.volume = vol;
+          mountainVideoElem.play().catch(()=>{});
+        } else {
+          mountainVideoElem.muted = true;
+          mountainVideoElem.volume = 0.0;
+        }
+      }
+    }
 
-  if(fogBarrierGroup){
-    fogBarrierGroup.children.forEach((fPlane, idx) => {
-      fPlane.position.z = Math.sin(curTime * 0.4 + idx) * 18;
-    });
-  }
+    let lastMinimapUpdateTime = 0;
 
-  updateFpsCounter();
-  updateAllLODs(activeX, activeZ);
-  updateNearbyBuildingDetails(activeX, activeZ);
-  if (curTime - lastCanvasUpdateTime > 0.075) {
-    updateIndilaLoveStoryVideo(curTime);
-    updateTvCanvas(curTime);
-    updateDistrictAdCanvas(curTime);
-    updateTwinAdCanvas(curTime);
-    lastCanvasUpdateTime = curTime;
-  }
-  updateDayNight(dt); updateDubaiMetroTrain(dt); updateMountainTrain(dt); updateRaceCars(dt); updateTrafficLights(dt); updateHelicopter(dt); updatePlayerHelicopter(dt);
-  if(started){ updateCar(dt); updateVehicleInteractionPrompt(); updateCabDuty(dt); }
-  updateCamera(dt); updateTraffic(dt); updatePedestrians(dt); drawMinimap();
-  if(domFullMapModal && domFullMapModal.classList.contains('show')) drawFullMap();
-  
-  renderer.render(scene, camera);
-  if (cssRenderer && cssScene) {
-    cssRenderer.render(cssScene, camera);
-  }
-}
+    function loop(timestampSec){
+      requestAnimationFrame(loop);
+      const dt = Math.min(clockDelta.getDelta(), 0.016);
+      const curTime = (timestampSec || performance.now()) * 0.001;
 
-init();
+      const activeX = inTrain ? mountainTrainMesh.position.x : (inHelicopter ? playerHeliState.x : carState.x);
+      const activeZ = inTrain ? mountainTrainMesh.position.z : (inHelicopter ? playerHeliState.z : carState.z);
 
-})();
-</script>
-</body>
-</html>
-```
+      if(fogBarrierGroup){
+        fogBarrierGroup.children.forEach((fPlane, idx) => {
+          fPlane.position.z = Math.sin(curTime * 0.4 + idx) * 18;
+        });
+      }
+
+      updateFpsCounter();
+      updateAllLODs(activeX, activeZ);
+      updateNearbyBuildingDetails(activeX, activeZ);
+
+      const canvasInterval = isMobile ? 0.22 : 0.08;
+      if (curTime - lastCanvasUpdateTime > canvasInterval) {
+        if (inTrain) {
+          updateIndilaLoveStoryVideo(curTime);
+        } else if (inHouse) {
+          updateTvCanvas(curTime);
+        } else if (!inHelicopter) {
+          if (Math.hypot(activeX, activeZ - (-80)) < 220) updateDistrictAdCanvas(curTime);
+          if (Math.hypot(activeX - COAST.islandX, activeZ - COAST.islandZ) < 260) updateTwinAdCanvas(curTime);
+          updateGroundPhotoAds(curTime);
+        }
+        lastCanvasUpdateTime = curTime;
+      }
+
+      updateDayNight(dt);
+      updateDubaiMetroTrain(dt);
+      updateMountainTrain(dt);
+      updateRaceCars(dt);
+      updateRaceGame(dt);
+      updateTrafficLights(dt);
+      updateHelicopter(dt);
+      updatePlayerHelicopter(dt);
+      updateDamWaterFlowAnimation(curTime, dt);
+
+      if(started){
+        updateCar(dt);
+        updateVehicleInteractionPrompt();
+        updateCabDuty(dt);
+      }
+
+      updateCamera(dt);
+      updateTraffic(dt);
+      updatePedestrians(dt);
+      updateOutdoorTVAudio(activeX, activeZ);
+      updateBeachAudio(dt, activeX, activeZ);
+      updateDamAudio(dt, activeX, activeZ);
+
+      if (curTime - lastMinimapUpdateTime > 0.06) {
+        drawMinimap();
+        lastMinimapUpdateTime = curTime;
+      }
+
+      if(domFullMapModal && domFullMapModal.classList.contains('show')) drawFullMap();
+
+      renderer.render(scene, camera);
+
+      if (cssRenderer && cssScene) {
+        let activeCssObjects = 0;
+
+        if (beachTvCssObject && beachTvCssObject.element) {
+          const distToBeach = Math.hypot(activeX - (-85.0), activeZ - (COAST.beachStartZ + 25));
+          const visible = !inHelicopter && distToBeach < 250;
+          beachTvCssObject.element.style.display = visible ? 'block' : 'none';
+          if (visible) activeCssObjects++;
+        }
+
+        if (mountainTvCssObject && mountainTvCssObject.element) {
+          const distToMountain = Math.hypot(activeX - 120.0, activeZ - (-1020.0));
+          const visible = !inHelicopter && distToMountain < 320;
+          mountainTvCssObject.element.style.display = visible ? 'block' : 'none';
+          if (visible) activeCssObjects++;
+        }
+
+        if (houseTvCssObject && houseTvCssObject.element) {
+          houseTvCssObject.element.style.display = inHouse ? 'block' : 'none';
+          if (inHouse) activeCssObjects++;
+        }
+
+        if (activeCssObjects > 0) {
+          cssRenderer.render(cssScene, camera);
+        }
+      }
+    }
+    init();
+
+    })();
+    </script>
+    </body>
+    </html>
