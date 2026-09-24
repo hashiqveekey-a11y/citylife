@@ -603,6 +603,16 @@
 (function(){
 "use strict";
 
+function prepareRaycastTarget(mesh) {
+  if (mesh && mesh.geometry) {
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+    if (mesh.material) {
+      mesh.material.side = THREE.DoubleSide;
+    }
+  }
+}
+
 function hideLoadingScreen(){
   const ls = document.getElementById('loadingScreen');
   if(ls) {
@@ -760,14 +770,20 @@ const HYDRO_DAM = {
   roadY: 32.0,
   lakeWaterY: 24.0
 };
-let damGatesList = [];
+let waterfallShaderMat, sprayParticles, sprayGeo, sprayVelocities = [];
+let gateGroup, leftPiston, rightPiston;
 let spillwayWaterMesh = null;
 let reservoirLakeMesh = null;
 let oceanWaterMesh = null;
-let waterFallStreams = [];
-let damMistParticles = null;
-let damParticleGeo = null;
-const damGateState = { open: false, progress: 0.0 };
+const GATE_CLOSED_Y = 14.0;
+const GATE_OPEN_Y = 32.0;
+
+const damGateState = {
+    isOpen: false,
+    yPos: GATE_CLOSED_Y,
+    flowIntensity: 0.0,
+    flowRate: 0
+};
 
 const RACE_TRACK = {
   cx: WORLD.half + 300,
@@ -1095,6 +1111,70 @@ function createReferenceWaterMaterial(options = {}) {
     depthWrite: true,
     side: THREE.DoubleSide
   });
+}
+
+
+/* -------------------------------------------------------------
+ * ENERGETIC CASCADING WATERFALL GLSL SHADER MATERIAL
+ * ----------------------------------------------------------- */
+function createCascadingWaterfallMaterial() {
+    return new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        uniforms: {
+            uTime: { value: 0.0 },
+            uFlowIntensity: { value: 1.0 },
+            uColorDeep: { value: new THREE.Color(0x0c4b64) },
+            uColorFoam: { value: new THREE.Color(0xffffff) }
+        },
+        vertexShader: `
+            uniform float uTime;
+            uniform float uFlowIntensity;
+            varying vec2 vUv;
+            varying vec3 vNormal;
+
+            void main() {
+                vUv = uv;
+                vec3 transformed = position;
+                float wave = sin(uv.y * 55.0 - uTime * 22.0) * cos(uv.x * 24.0 + uTime * 6.0);
+                transformed += normal * wave * 0.55 * uFlowIntensity;
+                vNormal = normalMatrix * normal;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float uTime;
+            uniform float uFlowIntensity;
+            uniform vec3 uColorDeep;
+            uniform vec3 uColorFoam;
+            varying vec2 vUv;
+            varying vec3 vNormal;
+
+            float hash(vec2 p) {
+                p = fract(p * vec2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return fract(p.x * p.y);
+            }
+
+            void main() {
+                if (uFlowIntensity <= 0.01) {
+                    discard;
+                }
+
+                vec2 uvFlow = vec2(vUv.x * 6.0, vUv.y * 14.0 - uTime * 4.5);
+                float n = hash(floor(uvFlow));
+                float streaks = sin(uvFlow.x * 8.0 + sin(uvFlow.y * 4.0)) * 0.5 + 0.5;
+
+                float foamFactor = pow(vUv.y, 1.2) * 0.75 + streaks * 0.35;
+                foamFactor = clamp(foamFactor * uFlowIntensity, 0.0, 1.0);
+
+                vec3 finalColor = mix(uColorDeep, uColorFoam, foamFactor);
+                float alpha = (0.75 + foamFactor * 0.25) * uFlowIntensity;
+
+                gl_FragColor = vec4(finalColor, alpha);
+            }
+        `
+    });
 }
 
 let oceanWaterMaterial = null;
@@ -1625,6 +1705,9 @@ function initGroundPhotoAds() {
 
     const screenBack = new THREE.Mesh(new THREE.PlaneGeometry(6.0, 3.4), screenMat);
     screenBack.position.set(0, 4.2, -0.19); screenBack.rotation.y = Math.PI; displayGroup.add(screenBack);
+
+    prepareRaycastTarget(screenFront);
+    prepareRaycastTarget(screenBack);
 
     const topBar = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.22, 0.6), frameMat);
     topBar.position.set(0, 6.2, 0); displayGroup.add(topBar);
@@ -2372,6 +2455,12 @@ const terrainHeightGrid = new Float32Array(TERR_GRID_COUNT * TERR_GRID_COUNT);
 let terrainGridInitialized = false;
 
 function computeRawTerrainMath(x, z) {
+  // ✅ 1. REMOVE MOUNTAIN IN FRONT OF DAM GATE & SPILLWAY CHUTE
+  if (x >= HYDRO_DAM.cx - 20 && x <= HYDRO_DAM.cx + 260 && Math.abs(z - HYDRO_DAM.cz) <= 35.0) {
+    return 0.0; // Completely flattens the mound in front of the dam gate to riverbed level (0.0)
+  }
+
+  // 2. City Core & Coast flat checks
   if (Math.abs(x) <= WORLD.half + 30 && z >= -WORLD.half - 30 && z < COAST.beachStartZ) {
     return 0.0;
   }
@@ -2394,6 +2483,7 @@ function computeRawTerrainMath(x, z) {
     return 0.0;
   }
 
+  // 3. Side Mountain Canyon Walls
   const distMtnL = Math.hypot(x - HYDRO_DAM.cx, z - (-110.0));
   if (distMtnL < 95.0) {
     return (1.0 - distMtnL / 95.0) * 72.0;
@@ -2526,37 +2616,51 @@ function buildMountainsAndGreenTerrain() {
 }
 
 function buildDamParticleSpray() {
-  const particleCount = 800;
-  damParticleGeo = new THREE.BufferGeometry();
-  const positions = new Float32Array(particleCount * 3);
-  const velocities = new Float32Array(particleCount * 3);
+    const sprayCount = 1200;
+    sprayGeo = new THREE.BufferGeometry();
+    const sprayPositions = new Float32Array(sprayCount * 3);
+    sprayVelocities = [];
 
-  const dx = HYDRO_DAM.cx + HYDRO_DAM.wallThickness/2 + 28.0;
+    const dx = HYDRO_DAM.cx + HYDRO_DAM.wallThickness / 2 + 32.0;
 
-  for (let i = 0; i < particleCount; i++) {
-    positions[i*3] = dx + (Math.random() - 0.5) * 12.0;
-    positions[i*3+1] = 1.0 + Math.random() * 4.0;
-    positions[i*3+2] = (Math.random() - 0.5) * 80.0;
+    for (let i = 0; i < sprayCount; i++) {
+        sprayPositions[i * 3]     = dx + (Math.random() - 0.5) * 8.0;
+        sprayPositions[i * 3 + 1] = 1.0 + Math.random() * 3.0;
+        sprayPositions[i * 3 + 2] = (Math.random() - 0.5) * 22.0;
 
-    velocities[i*3] = 4.0 + Math.random() * 12.0;
-    velocities[i*3+1] = 3.0 + Math.random() * 8.0;
-    velocities[i*3+2] = (Math.random() - 0.5) * 4.0;
-  }
+        sprayVelocities.push({
+            x: 0.3 + Math.random() * 0.6,
+            y: 0.35 + Math.random() * 0.65,
+            z: (Math.random() - 0.5) * 0.45,
+            baseY: Math.random() * 2.0
+        });
+    }
+    sprayGeo.setAttribute('position', new THREE.BufferAttribute(sprayPositions, 3));
 
-  damParticleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  damParticleGeo.userData = { velocities };
+    const canvasSpray = document.createElement('canvas');
+    canvasSpray.width = 32;
+    canvasSpray.height = 32;
+    const ctxSpray = canvasSpray.getContext('2d');
+    const grad = ctxSpray.createRadialGradient(16, 16, 0, 16, 16, 16);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    grad.addColorStop(0.4, 'rgba(230, 245, 255, 0.3)');
+    grad.addColorStop(1, 'rgba(230, 245, 255, 0)');
+    ctxSpray.fillStyle = grad;
+    ctxSpray.fillRect(0, 0, 32, 32);
+    const sprayTexture = new THREE.CanvasTexture(canvasSpray);
 
-  const spriteMat = new THREE.PointsMaterial({
-    color: 0xe0f2fe,
-    size: 4.5,
-    transparent: true,
-    opacity: 0.0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  });
+    const sprayMat = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 6.5,
+        map: sprayTexture,
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
 
-  damMistParticles = new THREE.Points(damParticleGeo, spriteMat);
-  scene.add(damMistParticles);
+    sprayParticles = new THREE.Points(sprayGeo, sprayMat);
+    scene.add(sprayParticles);
 }
 
 function updateDamParticleSpray(dt) {
@@ -2586,175 +2690,243 @@ function updateDamParticleSpray(dt) {
 }
 
 function buildHydroelectricDam() {
-  const damGroup = new THREE.Group();
-  const dx = HYDRO_DAM.cx, dz = HYDRO_DAM.cz;
+    const damGroup = new THREE.Group();
+    const dx = HYDRO_DAM.cx, dz = HYDRO_DAM.cz;
 
-  const concMat = new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.7, metalness: 0.2 });
-  const darkSteel = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.9 });
-  const cyanGlowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 2.5 });
+    const concMat = new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.7, metalness: 0.2 });
+    const gateMat = new THREE.MeshStandardMaterial({ color: 0x99241b, roughness: 0.35, metalness: 0.75 });
+    const pistonMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.95, roughness: 0.1 });
 
-  damLakeWaterMaterial = createReferenceWaterMaterial({
-    speed: 0.5,
-    waveScale: 0.5,
-    waterColor: new THREE.Color(0x02253b),
-    shallowColor: new THREE.Color(0x0b556b)
-  });
+    // 1. Main Dam Wall (Aligned across canyon along Z axis)
+    const damShape = new THREE.Shape();
+    damShape.moveTo(-HYDRO_DAM.wallThickness / 2, 0);
+    damShape.lineTo(HYDRO_DAM.wallThickness / 2 + 18.0, 0);
+    damShape.lineTo(HYDRO_DAM.wallThickness / 2, HYDRO_DAM.wallHeight);
+    damShape.lineTo(-HYDRO_DAM.wallThickness / 2, HYDRO_DAM.wallHeight);
+    damShape.closePath();
 
-  damSpillwayWaterMaterial = createReferenceWaterMaterial({
-    speed: 3.5,
-    waveScale: 1.4,
-    waterColor: new THREE.Color(0x044766),
-    shallowColor: new THREE.Color(0xd9f2fa),
-    isSpillway: true
-  });
+    const extrudeSettings = { steps: 1, depth: HYDRO_DAM.wallLength, bevelEnabled: false };
+    const damGeom = new THREE.ExtrudeGeometry(damShape, extrudeSettings);
+    damGeom.center();
+    
+    const damWall = new THREE.Mesh(damGeom, concMat);
+    damWall.position.set(0, HYDRO_DAM.wallHeight / 2, 0);
+    // ✅ FIX: Removed Math.PI / 2 rotation so wall spans across canyon (Z-axis) without sticking out
+    damWall.rotation.y = 0; 
+    damGroup.add(damWall);
 
-  const damShape = new THREE.Shape();
-  damShape.moveTo(-HYDRO_DAM.wallThickness / 2, 0);
-  damShape.lineTo(HYDRO_DAM.wallThickness / 2 + 18.0, 0);
-  damShape.lineTo(HYDRO_DAM.wallThickness / 2, HYDRO_DAM.wallHeight);
-  damShape.lineTo(-HYDRO_DAM.wallThickness / 2, HYDRO_DAM.wallHeight);
-  damShape.closePath();
+    // 2. Road Deck
+    const roadDeck = new THREE.Mesh(
+        new THREE.PlaneGeometry(HYDRO_DAM.wallThickness, HYDRO_DAM.wallLength),
+        makeFlyoverRoadTexture(HYDRO_DAM.wallLength)
+    );
+    roadDeck.rotation.x = -Math.PI / 2;
+    roadDeck.position.set(0, HYDRO_DAM.wallHeight + 0.1, 0);
+    damGroup.add(roadDeck);
 
-  const extrudeSettings = { steps: 1, depth: HYDRO_DAM.wallLength, bevelEnabled: false };
-  const damGeom = new THREE.ExtrudeGeometry(damShape, extrudeSettings);
-  damGeom.center();
-  const damWall = new THREE.Mesh(damGeom, concMat);
-  damWall.position.set(0, HYDRO_DAM.wallHeight / 2, 0);
-  damWall.rotation.y = Math.PI / 2;
-  damGroup.add(damWall);
+    // 3. Crimson Industrial Shutter Gate
+    gateGroup = new THREE.Group();
+    const gatePanel = new THREE.Mesh(new THREE.BoxGeometry(2.2, 16.0, 24.0), gateMat);
+    gateGroup.add(gatePanel);
 
-  const roadDeck = new THREE.Mesh(
-    new THREE.PlaneGeometry(HYDRO_DAM.wallThickness, HYDRO_DAM.wallLength), 
-    makeFlyoverRoadTexture(HYDRO_DAM.wallLength)
-  );
-  roadDeck.rotation.x = -Math.PI / 2;
-  roadDeck.position.set(0, HYDRO_DAM.wallHeight + 0.1, 0);
-  damGroup.add(roadDeck);
+    for (let y = -5; y <= 5; y += 3.5) {
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.2, 24.2), gateMat);
+        beam.position.set(0, y, 0);
+        gateGroup.add(beam);
+    }
 
-  [-HYDRO_DAM.wallThickness / 2 + 0.5, HYDRO_DAM.wallThickness / 2 - 0.5].forEach(rx => {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.4, HYDRO_DAM.wallLength), concMat);
-    rail.position.set(rx, HYDRO_DAM.wallHeight + 0.7, 0);
-    damGroup.add(rail);
-  });
+    const pistonGeo = new THREE.CylinderGeometry(0.6, 0.6, 24, 16);
+    leftPiston = new THREE.Mesh(pistonGeo, pistonMat);
+    leftPiston.position.set(0, 18, -8);
+    rightPiston = new THREE.Mesh(pistonGeo, pistonMat);
+    rightPiston.position.set(0, 18, 8);
+    gateGroup.add(leftPiston, rightPiston);
 
-  damGatesList = [];
-  waterFallStreams = [];
-  [-30, 0, 30].forEach((gz, idx) => {
-    const gateMesh = new THREE.Mesh(new THREE.BoxGeometry(2.2, 11.0, 16.0), darkSteel);
-    const gateBaseY = 14.0;
-    gateMesh.position.set(HYDRO_DAM.wallThickness / 2 + 0.2, gateBaseY, gz);
-    gateMesh.userData = { baseY: gateBaseY, gateIndex: idx };
-    damGroup.add(gateMesh);
-    damGatesList.push(gateMesh);
+    gateGroup.position.set(HYDRO_DAM.wallThickness / 2 + 0.2, GATE_CLOSED_Y, 0);
+    damGroup.add(gateGroup);
 
-    const chuteGeo = new THREE.PlaneGeometry(16.0, 38.0, 32, 32);
-    const chuteMesh = new THREE.Mesh(chuteGeo, damSpillwayWaterMaterial);
-    chuteMesh.position.set(HYDRO_DAM.wallThickness / 2 + 10.0, 14.0, gz);
-    chuteMesh.rotation.y = Math.PI / 2;
-    chuteMesh.rotation.x = 0.85;
-    chuteMesh.scale.set(0.01, 0.01, 0.01);
-    damGroup.add(chuteMesh);
-    waterFallStreams.push(chuteMesh);
-  });
+    // 4. Parabolic Curved Waterfall
+    const spillwayCurve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(HYDRO_DAM.wallThickness / 2 + 1.0, 22.0, 0),
+        new THREE.Vector3(HYDRO_DAM.wallThickness / 2 + 12.0, 14.0, 0),
+        new THREE.Vector3(HYDRO_DAM.wallThickness / 2 + 32.0, 1.2, 0)
+    );
 
-  const lakeGeo = new THREE.CylinderGeometry(140, 130, 0.2, 64);
-  reservoirLakeMesh = new THREE.Mesh(lakeGeo, damLakeWaterMaterial);
-  reservoirLakeMesh.position.set(-135, HYDRO_DAM.lakeWaterY, 0);
-  damGroup.add(reservoirLakeMesh);
+    const waterfallGeo = new THREE.PlaneGeometry(22.0, 1, 32, 96);
+    const wPos = waterfallGeo.attributes.position;
 
-  const riverRunGeo = new THREE.PlaneGeometry(280, 75, 64, 64);
-  spillwayWaterMesh = new THREE.Mesh(riverRunGeo, damLakeWaterMaterial);
-  spillwayWaterMesh.rotation.x = -Math.PI / 2;
-  spillwayWaterMesh.position.set(155, 0.8, 0);
-  damGroup.add(spillwayWaterMesh);
+    for (let i = 0; i < wPos.count; i++) {
+        const v = (wPos.getY(i) + 0.5);
+        const pointOnCurve = spillwayCurve.getPoint(v);
+        const z = wPos.getX(i);
 
-  const connLen = 300.0;
-  const approachRoad = new THREE.Mesh(
-    new THREE.PlaneGeometry(connLen, 16.0), 
-    makeFlyoverRoadTexture(connLen)
-  );
-  approachRoad.rotation.x = -Math.PI / 2;
-  approachRoad.position.set(dx + connLen / 2, HYDRO_DAM.roadY / 2, 0);
-  approachRoad.rotation.z = -Math.atan2(HYDRO_DAM.roadY, connLen);
-  scene.add(approachRoad);
+        wPos.setXYZ(i, pointOnCurve.x, pointOnCurve.y, z);
+    }
+    waterfallGeo.computeVertexNormals();
 
-  damGroup.position.set(dx, 0, dz);
-  scene.add(damGroup);
+    waterfallShaderMat = createCascadingWaterfallMaterial();
+    waterfallShaderMat.uniforms.uFlowIntensity.value = 0.0;
 
-  const box = { 
-    minX: dx - HYDRO_DAM.wallThickness / 2, 
-    maxX: dx + HYDRO_DAM.wallThickness / 2 + 18.0, 
-    minZ: -HYDRO_DAM.wallLength / 2, 
-    maxZ: HYDRO_DAM.wallLength / 2, 
-    minY: 0, 
-    maxY: HYDRO_DAM.wallHeight + 6.0, 
-    type: 'Hydroelectric Water Dam' 
-  };
-  buildingBoxes.push(box); 
-  registerCollider(box);
+    const waterfallMesh = new THREE.Mesh(waterfallGeo, waterfallShaderMat);
+    damGroup.add(waterfallMesh);
+
+    // 5. Upstream Reservoir
+    damLakeWaterMaterial = createReferenceWaterMaterial({
+        speed: 0.5,
+        waveScale: 0.5,
+        waterColor: new THREE.Color(0x02253b),
+        shallowColor: new THREE.Color(0x0b556b)
+    });
+
+    const lakeGeo = new THREE.CylinderGeometry(140, 130, 0.2, 64);
+    reservoirLakeMesh = new THREE.Mesh(lakeGeo, damLakeWaterMaterial);
+    reservoirLakeMesh.position.set(-135, HYDRO_DAM.lakeWaterY, 0);
+    damGroup.add(reservoirLakeMesh);
+
+    // 6. Downstream River
+    const riverRunGeo = new THREE.PlaneGeometry(280, 75, 64, 64);
+    spillwayWaterMesh = new THREE.Mesh(riverRunGeo, damLakeWaterMaterial);
+    spillwayWaterMesh.rotation.x = -Math.PI / 2;
+    spillwayWaterMesh.position.set(155, 0.8, 0);
+    damGroup.add(spillwayWaterMesh);
+
+    // 7. Approach Road
+    const connLen = 300.0;
+    const approachRoad = new THREE.Mesh(
+        new THREE.PlaneGeometry(connLen, 16.0),
+        makeFlyoverRoadTexture(connLen)
+    );
+    approachRoad.rotation.x = -Math.PI / 2;
+    approachRoad.position.set(dx + connLen / 2, HYDRO_DAM.roadY / 2, 0);
+    approachRoad.rotation.z = -Math.atan2(HYDRO_DAM.roadY, connLen);
+    scene.add(approachRoad);
+
+    damGroup.position.set(dx, 0, dz);
+    scene.add(damGroup);
+
+    const box = {
+        minX: dx - HYDRO_DAM.wallThickness / 2,
+        maxX: dx + HYDRO_DAM.wallThickness / 2 + 18.0,
+        minZ: -HYDRO_DAM.wallLength / 2,
+        maxZ: HYDRO_DAM.wallLength / 2,
+        minY: 0,
+        maxY: HYDRO_DAM.wallHeight + 6.0,
+        type: 'Hydroelectric Water Dam'
+    };
+    buildingBoxes.push(box);
+    registerCollider(box);
 }
 
+let isGateAnimating = false;
+
 function toggleDamGates() {
-  initAudio();
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (isGateAnimating) return;
+    isGateAnimating = true;
 
-  damGateState.open = !damGateState.open;
-  const targetVal = damGateState.open ? 1.0 : 0.0;
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 
-  if (typeof anime !== 'undefined') {
-    anime({
-      targets: damGateState,
-      progress: targetVal,
-      duration: 2600,
-      easing: 'easeInOutCubic',
-      update: function() {
-        damGatesList.forEach(gate => {
-          gate.position.y = gate.userData.baseY + damGateState.progress * 10.0;
-        });
+    damGateState.isOpen = !damGateState.isOpen;
 
-        if (damSpillwayWaterMaterial) {
-          damSpillwayWaterMaterial.uniforms.uSpeed.value = 0.1 + damGateState.progress * 3.4;
-          damSpillwayWaterMaterial.uniforms.uWaveScale.value = 0.2 + damGateState.progress * 1.8;
-        }
+    const targetY = damGateState.isOpen ? GATE_OPEN_Y : GATE_CLOSED_Y;
+    const targetFlow = damGateState.isOpen ? 1.0 : 0.0;
+    const targetFlowRate = damGateState.isOpen ? 4850 : 0;
 
-        waterFallStreams.forEach(stream => {
-          stream.scale.set(damGateState.progress, damGateState.progress, damGateState.progress);
-        });
-
-        if (domDamWaterVal) domDamWaterVal.textContent = Math.round(65 + damGateState.progress * 30) + '%';
-        if (domDamGateVal) {
-          domDamGateVal.textContent = damGateState.open ? 'OPEN (WATER FLOWING)' : 'CLOSED';
-          domDamGateVal.style.color = damGateState.open ? 'var(--green)' : 'var(--gold)';
-        }
-
-        const fillElem = document.querySelector('.dam-water-fill');
-        if (fillElem) fillElem.style.width = (65 + damGateState.progress * 30) + '%';
-      }
-    });
-  } else {
-    damGateState.progress = targetVal;
-    damGatesList.forEach(gate => { gate.position.y = gate.userData.baseY + targetVal * 10.0; });
-    if (damSpillwayWaterMaterial) {
-      damSpillwayWaterMaterial.uniforms.uSpeed.value = 0.1 + targetVal * 3.4;
-      damSpillwayWaterMaterial.uniforms.uWaveScale.value = 0.2 + targetVal * 1.8;
+    const btn = domToggleDamGatesBtn;
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
     }
-  }
 
-  showToast(damGateState.open ? "ANIME.JS: SLUICE GATES OPENED 🌊 ULTRA WATER FLOW ACTIVE" : "ANIME.JS: SLUICE GATES CLOSED 🛑");
-  if (damGateState.open) playMoneySound(); else playCrashSound(0.4);
+    anime({
+        targets: damGateState,
+        yPos: targetY,
+        flowIntensity: targetFlow,
+        flowRate: targetFlowRate,
+        duration: 2800,
+        easing: 'easeInOutCubic',
+        update: () => {
+            if (gateGroup) gateGroup.position.y = damGateState.yPos;
+
+            if (waterfallShaderMat) {
+                waterfallShaderMat.uniforms.uFlowIntensity.value = damGateState.flowIntensity;
+            }
+
+            if (sprayParticles) {
+                sprayParticles.material.opacity = damGateState.flowIntensity * 0.55;
+            }
+
+            const pct = Math.round(((damGateState.yPos - GATE_CLOSED_Y) / (GATE_OPEN_Y - GATE_CLOSED_Y)) * 100);
+            
+            if (domDamWaterVal) {
+                domDamWaterVal.textContent = `${Math.round(damGateState.flowRate).toLocaleString()} m³/s`;
+            }
+            if (domDamGateVal) {
+                domDamGateVal.textContent = pct === 0 ? "CLOSED (0%)" : (pct === 100 ? "OPEN (100%)" : `MOVING (${pct}%)`);
+                domDamGateVal.style.color = pct === 0 ? 'var(--gold)' : 'var(--cyan)';
+            }
+
+            const fillElem = document.querySelector('.dam-water-fill');
+            if (fillElem) fillElem.style.width = pct + '%';
+        },
+        complete: () => {
+            if (btn) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.textContent = damGateState.isOpen ? "CLOSE SLUICE GATES (ANIME.JS)" : "OPEN SLUICE GATES (ANIME.JS)";
+            }
+            isGateAnimating = false;
+            showToast(damGateState.isOpen ? "ANIME.JS: SHUTTER GATES OPENED 🌊 4,850 m³/s FLOW ACTIVE" : "ANIME.JS: SHUTTER GATES CLOSED 🛑");
+            if (damGateState.isOpen) playMoneySound(); else playCrashSound(0.4);
+        }
+    });
 }
 
 function updateDamWaterFlowAnimation(curTimeSec, dt) {
-  if (damSpillwayWaterMaterial) {
-    damSpillwayWaterMaterial.uniforms.uTime.value = curTimeSec;
-  }
-  if (damLakeWaterMaterial) {
-    damLakeWaterMaterial.uniforms.uTime.value = curTimeSec;
-  }
-  if (oceanWaterMaterial) {
-    oceanWaterMaterial.uniforms.uTime.value = curTimeSec;
-  }
-  updateDamParticleSpray(dt);
+    if (waterfallShaderMat) {
+        waterfallShaderMat.uniforms.uTime.value = curTimeSec;
+    }
+
+    if (damLakeWaterMaterial) {
+        damLakeWaterMaterial.uniforms.uTime.value = curTimeSec;
+    }
+    if (oceanWaterMaterial) {
+        oceanWaterMaterial.uniforms.uTime.value = curTimeSec;
+    }
+
+    if (sprayGeo && sprayParticles) {
+        const sPos = sprayGeo.attributes.position;
+        const flow = damGateState.flowIntensity;
+        const count = sPos.count;
+        const dx = HYDRO_DAM.cx + HYDRO_DAM.wallThickness / 2 + 32.0;
+
+        for (let i = 0; i < count; i++) {
+            const vel = sprayVelocities[i];
+            let px = sPos.getX(i);
+            let py = sPos.getY(i);
+            let pz = sPos.getZ(i);
+
+            if (flow > 0.02) {
+                px += vel.x * flow;
+                py += vel.y * flow;
+                pz += vel.z * flow;
+
+                vel.y -= 0.015;
+
+                if (py < vel.baseY || px > dx + 30.0) {
+                    px = dx + (Math.random() - 0.5) * 6.0;
+                    py = vel.baseY + Math.random() * 2.0;
+                    pz = (Math.random() - 0.5) * 20.0;
+                    vel.y = 0.35 + Math.random() * 0.65;
+                }
+            } else {
+                py = -10.0;
+            }
+
+            sPos.setXYZ(i, px, py, pz);
+        }
+        sprayGeo.attributes.position.needsUpdate = true;
+    }
 }
 
 function buildFogBarrier(){}
@@ -3231,7 +3403,7 @@ function buildVillageBridge(){
     new THREE.Vector3(-290, 0.2, -840)
   ]);
 
-villageBridgePoints = VILLAGE_BRIDGE_PATH.getPoints(300);
+  villageBridgePoints = VILLAGE_BRIDGE_PATH.getPoints(300);
   const segments = 100;
   const points = VILLAGE_BRIDGE_PATH.getPoints(segments);
   const roadWidth = 16.0;
@@ -4412,12 +4584,15 @@ function buildCurvedCableBridge(){
 }
 
 function getCurvedBridgeHeight(x, z){
-  if(villageBridgePoints && villageBridgePoints.length > 0 && z <= -430 && z >= -840 && x >= -320 && x <= -160){
+  // Bounding box expanded to z <= -400 and z >= -880 to cover Z = -672 entrance
+  if(villageBridgePoints && villageBridgePoints.length > 0 && z <= -400 && z >= -880 && x >= -340 && x <= -140){
+    if(!onVillageBridge) return null;
+
     let minDistanceSq = Infinity;
     let heightAtMin = null;
-    const thresholdSq = 144.0;
+    const thresholdSq = 225.0; // 15m detection radius along bridge path
 
-    for(let i=0; i < villageBridgePoints.length - 1; i++){
+    for(let i = 0; i < villageBridgePoints.length - 1; i++){
       const p1 = villageBridgePoints[i];
       const p2 = villageBridgePoints[i+1];
       const dx = p2.x - p1.x;
@@ -4441,16 +4616,16 @@ function getCurvedBridgeHeight(x, z){
     if(minDistanceSq <= thresholdSq) return heightAtMin;
   }
 
-  if(!bridgeSamplePoints || bridgeSamplePoints.length === 0 || z < COAST.beachStartZ - 10 || z > COAST.islandZ + 20 || x < -20 || x > COAST.islandX + 40) return null;
-  
+  if(!bridgeSamplePoints || bridgeSamplePoints.length === 0 || z < COAST.beachStartZ - 20 || z > COAST.islandZ + 30 || x < -30 || x > COAST.islandX + 50) return null;
+
   let minDistanceSq = Infinity;
   let heightAtMin = null;
-  const bridgeThresholdSq = 90.25;
+  const bridgeThresholdSq = 144.0;
 
-  for(let i=0; i < bridgeSamplePoints.length - 1; i++){
+  for(let i = 0; i < bridgeSamplePoints.length - 1; i++){
     const p1 = bridgeSamplePoints[i];
     const p2 = bridgeSamplePoints[i+1];
-    
+
     const dx = p2.x - p1.x;
     const dz = p2.z - p1.z;
     const lenSq = dx * dx + dz * dz;
@@ -4698,66 +4873,117 @@ function buildHummerH3Car(){
   wheelRL = car.userData.wheels[2];
   wheelRR = car.userData.wheels[3];
 
-  carState.x = 0; carState.z = FLYOVER.z; carState.heading = Math.PI / 2; car.position.set(carState.x, 0, carState.z); scene.add(car);
+  onFlyover = false; 
+  carState.x = 0; 
+  carState.z = FLYOVER.z; // Directly beneath the bridge deck
+  carState.heading = 0;   // Facing North through the underpass
+  carState.speed = 0;
+  carState.pitch = 0;
+  carState.roll = 0;
+
+  currentSurfaceHeight = 0.08;
+  car.position.set(carState.x, currentSurfaceHeight, carState.z); 
+  scene.add(car);
 }
 
 function createDetailedTrafficMesh(type){
   const highGroup = new THREE.Group();
-  function addTrafficWheels(radius, width, rimColor, positions){ positions.forEach(([wx, wz]) => { const w = buildHighDetailWheel(radius, width, rimColor, false); w.position.set(wx, radius, wz); highGroup.add(w); }); }
+  function addTrafficWheels(radius, width, rimColor, positions){ 
+    positions.forEach(([wx, wz]) => { 
+      const w = buildHighDetailWheel(radius, width, rimColor, false); 
+      w.position.set(wx, radius, wz); 
+      highGroup.add(w); 
+    }); 
+  }
+
+  // ✅ Create unique brake light material for EVERY vehicle
+  const brakeLightMat = new THREE.MeshStandardMaterial({ 
+    color: 0x440005, 
+    emissive: 0xff0022, 
+    emissiveIntensity: 0.4, 
+    roughness: 0.2 
+  });
+  highGroup.userData.brakeLightMat = brakeLightMat;
 
   let halfLen = 2.25, halfWidth = 0.98;
+
   if(type === 'bmw'){
-    const bodyMat = new THREE.MeshStandardMaterial({ color:0x1d4ed8, roughness:0.18, metalness:0.88 }); const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.65, 4.5), bodyMat); body.position.y = 0.65; highGroup.add(body);
+    const bodyMat = new THREE.MeshStandardMaterial({ color:0x1d4ed8, roughness:0.18, metalness:0.88 }); 
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.65, 4.5), bodyMat); body.position.y = 0.65; highGroup.add(body);
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.52, 2.3), bodyMat); cabin.position.set(0, 1.18, -0.2); highGroup.add(cabin);
     const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.48, 0.05), V_MAT.glassClear); windshield.position.set(0, 1.18, 0.92); windshield.rotation.x = -0.38; highGroup.add(windshield);
-    [-0.72, 0.72].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.68, 2.26); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 0.72, -2.26); highGroup.add(tail); });
-    addTrafficWheels(0.38, 0.28, 0x94a3b8, [[-1.0, 1.35], [1.0, 1.35], [-1.0, -1.35], [1.0, -1.35]]); halfLen = 2.25; halfWidth = 0.98;
+    
+    [-0.72, 0.72].forEach(hx => { 
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.68, 2.26); highGroup.add(head); 
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), brakeLightMat); tail.position.set(hx, 0.72, -2.26); highGroup.add(tail); 
+    });
+    addTrafficWheels(0.38, 0.28, 0x94a3b8, [[-1.0, 1.35], [1.0, 1.35], [-1.0, -1.35], [1.0, -1.35]]); 
+    halfLen = 2.25; halfWidth = 0.98;
+
   } else if(type === 'landcruiser'){
-    const bodyMat = new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.2, metalness:0.6 }); const body = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.85, 4.7), bodyMat); body.position.y = 0.82; highGroup.add(body);
+    const bodyMat = new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.2, metalness:0.6 }); 
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.85, 4.7), bodyMat); body.position.y = 0.82; highGroup.add(body);
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.72, 2.7), bodyMat); cabin.position.set(0, 1.55, -0.1); highGroup.add(cabin);
     const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.65, 0.05), V_MAT.glassClear); windshield.position.set(0, 1.55, 1.22); windshield.rotation.x = -0.28; highGroup.add(windshield);
-    [-0.82, 0.82].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.18, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.95, 2.36); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 1.05, -2.36); highGroup.add(tail); });
-    addTrafficWheels(0.46, 0.32, 0xc0c0c0, [[-1.1, 1.42], [1.1, 1.42], [-1.1, -1.42], [1.1, -1.42]]); halfLen = 2.35; halfWidth = 1.08;
+    
+    [-0.82, 0.82].forEach(hx => { 
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.18, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.95, 2.36); highGroup.add(head); 
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.22, 0.08), brakeLightMat); tail.position.set(hx, 1.05, -2.36); highGroup.add(tail); 
+    });
+    addTrafficWheels(0.46, 0.32, 0xc0c0c0, [[-1.1, 1.42], [1.1, 1.42], [-1.1, -1.42], [1.1, -1.42]]); 
+    halfLen = 2.35; halfWidth = 1.08;
+
   } else if(type === 'benz'){
-    const bodyMat = new THREE.MeshStandardMaterial({ color:0x090d16, roughness:0.12, metalness:0.92 }); const body = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.62, 4.8), bodyMat); body.position.y = 0.62; highGroup.add(body);
+    const bodyMat = new THREE.MeshStandardMaterial({ color:0x090d16, roughness:0.12, metalness:0.92 }); 
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.62, 4.8), bodyMat); body.position.y = 0.62; highGroup.add(body);
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 2.5), bodyMat); cabin.position.set(0, 1.15, -0.2); highGroup.add(cabin);
     const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.46, 0.05), V_MAT.glassSmoked); windshield.position.set(0, 1.15, 1.02); windshield.rotation.x = -0.42; highGroup.add(windshield);
-    [-0.72, 0.72].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.65, 2.41); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 0.68, -2.41); highGroup.add(tail); });
-    addTrafficWheels(0.38, 0.28, 0xe2e8f0, [[-1.02, 1.4], [1.02, 1.4], [-1.02, -1.4], [1.02, -1.4]]); halfLen = 2.4; halfWidth = 0.99;
+    
+    [-0.72, 0.72].forEach(hx => { 
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.65, 2.41); highGroup.add(head); 
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.08), brakeLightMat); tail.position.set(hx, 0.68, -2.41); highGroup.add(tail); 
+    });
+    addTrafficWheels(0.38, 0.28, 0xe2e8f0, [[-1.02, 1.4], [1.02, 1.4], [-1.02, -1.4], [1.02, -1.4]]); 
+    halfLen = 2.4; halfWidth = 0.99;
+
   } else if(type === 'police'){
-    const bodyMat = new THREE.MeshStandardMaterial({ color:0x090a0f, roughness:0.2 }); const whiteDoor = new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.2 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color:0x090a0f, roughness:0.2 }); 
+    const whiteDoor = new THREE.MeshStandardMaterial({ color:0xf8fafc, roughness:0.2 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.68, 4.6), bodyMat); body.position.y = 0.68; highGroup.add(body);
     const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.54, 2.3), bodyMat); cabin.position.set(0, 1.22, -0.2); highGroup.add(cabin);
     const doors = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.55, 1.8), whiteDoor); doors.position.set(0, 0.68, -0.2); highGroup.add(doors);
-    const redLight = new THREE.MeshStandardMaterial({ color:0xff2222, emissive:0xff0000, emissiveIntensity:4.5 }); const blueLight = new THREE.MeshStandardMaterial({ color:0x2266ff, emissive:0x0044ff, emissiveIntensity:4.5 });
-    const lightL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.25), redLight); lightL.position.set(-0.4, 1.52, -0.2); highGroup.add(lightL);
-    const lightR = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.25), blueLight); lightR.position.set(0.4, 1.52, -0.2); highGroup.add(lightR);
-    [-0.75, 0.75].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.68, 2.32); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 0.72, -2.32); highGroup.add(tail); });
-    addTrafficWheels(0.4, 0.28, 0x1e293b, [[-1.02, 1.38], [1.02, 1.38], [-1.02, -1.38], [1.02, -1.38]]); halfLen = 2.3; halfWidth = 1.0;
+
+    const redLightMat  = new THREE.MeshStandardMaterial({ color:0xff1111, emissive:0xff0000, emissiveIntensity:0.2 });
+    const blueLightMat = new THREE.MeshStandardMaterial({ color:0x1155ff, emissive:0x0044ff, emissiveIntensity:0.2 });
+
+    const lightL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.25), redLightMat); lightL.position.set(-0.4, 1.52, -0.2); highGroup.add(lightL);
+    const lightR = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.25), blueLightMat); lightR.position.set(0.4, 1.52, -0.2); highGroup.add(lightR);
+
+    const redPoint = new THREE.PointLight(0xff0000, 0, 14.0); redPoint.position.set(-0.4, 1.62, -0.2); highGroup.add(redPoint);
+    const bluePoint = new THREE.PointLight(0x0044ff, 0, 14.0); bluePoint.position.set(0.4, 1.62, -0.2); highGroup.add(bluePoint);
+
+    highGroup.userData.policeLights = { redMat: redLightMat, blueMat: blueLightMat, redPoint, bluePoint, timer: Math.random() * Math.PI * 2 };
+
+    [-0.75, 0.75].forEach(hx => { 
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.68, 2.32); highGroup.add(head); 
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.14, 0.08), brakeLightMat); tail.position.set(hx, 0.72, -2.32); highGroup.add(tail); 
+    });
+    addTrafficWheels(0.4, 0.28, 0x1e293b, [[-1.02, 1.38], [1.02, 1.38], [-1.02, -1.38], [1.02, -1.38]]); 
+    halfLen = 2.3; halfWidth = 1.0;
+
   } else if(type === 'bus'){
     const busBodyMat = new THREE.MeshStandardMaterial({ color:0x0284c7, roughness:0.25, metalness:0.4 });
     const busTrimMat = new THREE.MeshStandardMaterial({ color:0x0f172a, roughness:0.6, metalness:0.8 });
     const busGlassMat = new THREE.MeshStandardMaterial({ color:0x38bdf8, transparent:true, opacity:0.55, roughness:0.1 });
     const busFrontGlassMat = new THREE.MeshStandardMaterial({ color:0xe0f2fe, transparent:true, opacity:0.65, roughness:0.05 });
     const busAccentLEDMat = new THREE.MeshStandardMaterial({ color:0xff3344, emissive:0xff0022, emissiveIntensity:0.3, roughness:0.2 });
-    const busBrakeLightMat = new THREE.MeshStandardMaterial({ color:0x440005, emissive:0xff0022, emissiveIntensity:0.3, roughness:0.2 });
     const busDisplaySignMat = new THREE.MeshStandardMaterial({ color:0x000000, emissive:0x38bdf8, emissiveIntensity:2.2 });
 
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.7, 2.7, 11.2), busBodyMat); body.position.y = 1.75; highGroup.add(body);
     const roofAC = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 3.2), busTrimMat); roofAC.position.set(0, 3.25, -1.0); highGroup.add(roofAC);
 
-    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(2.55, 1.45, 0.1), busFrontGlassMat);
-    frontGlass.position.set(0, 2.1, 5.58);
-    frontGlass.rotation.x = -0.22;
-    highGroup.add(frontGlass);
-
-    const displaySign = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.12), busDisplaySignMat);
-    displaySign.position.set(0, 2.9, 5.52);
-    highGroup.add(displaySign);
-
-    const driverSeat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.6), busTrimMat); driverSeat.position.set(-0.8, 1.2, 4.8); highGroup.add(driverSeat);
-    const dashBoard = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.45, 0.8), busTrimMat); dashBoard.position.set(0, 1.1, 5.2); highGroup.add(dashBoard);
-    const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.03, 6, 12), busTrimMat); steeringWheel.rotation.x = -0.3; steeringWheel.position.set(-0.8, 1.4, 4.9); highGroup.add(steeringWheel);
+    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(2.55, 1.45, 0.1), busFrontGlassMat); frontGlass.position.set(0, 2.1, 5.58); frontGlass.rotation.x = -0.22; highGroup.add(frontGlass);
+    const displaySign = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.4, 0.12), busDisplaySignMat); displaySign.position.set(0, 2.9, 5.52); highGroup.add(displaySign);
 
     const sideGlassL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 9.2), busGlassMat); sideGlassL.position.set(-1.32, 2.1, -0.4); highGroup.add(sideGlassL);
     const sideGlassR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 4.2), busGlassMat); sideGlassR.position.set(1.32, 2.1, -2.8); highGroup.add(sideGlassR);
@@ -4770,19 +4996,14 @@ function createDetailedTrafficMesh(type){
     const gFront1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.60), doorGlassMat); gFront1.position.y = 1.6; doorFront1.add(gFront1);
     doorFront1.position.set(1.33, 0, 3.8); highGroup.add(doorFront1);
 
-    const doorFront2 = doorFront1.clone();
-    doorFront2.position.set(1.33, 0, 4.55); highGroup.add(doorFront2);
-
-    const doorRear1 = doorFront1.clone();
-    doorRear1.position.set(1.33, 0, 0.2); highGroup.add(doorRear1);
-
-    const doorRear2 = doorFront1.clone();
-    doorRear2.position.set(1.33, 0, 0.95); highGroup.add(doorRear2);
+    const doorFront2 = doorFront1.clone(); doorFront2.position.set(1.33, 0, 4.55); highGroup.add(doorFront2);
+    const doorRear1 = doorFront1.clone(); doorRear1.position.set(1.33, 0, 0.2); highGroup.add(doorRear1);
+    const doorRear2 = doorFront1.clone(); doorRear2.position.set(1.33, 0, 0.95); highGroup.add(doorRear2);
 
     highGroup.userData.busDoors = { doorFront1, doorFront2, doorRear1, doorRear2, openProgress: 0.0 };
 
     [-1.1, 1.1].forEach(lx => {
-      const tailPod = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.42, 0.08), busBrakeLightMat);
+      const tailPod = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.42, 0.08), brakeLightMat);
       tailPod.position.set(lx, 1.1, -5.62); highGroup.add(tailPod);
 
       const accentLED = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.08), busAccentLEDMat);
@@ -4794,17 +5015,21 @@ function createDetailedTrafficMesh(type){
       head.position.set(hx, 0.85, 5.62); highGroup.add(head);
     });
 
-    highGroup.userData.brakeLightMat = busBrakeLightMat;
-    highGroup.userData.accentLEDMat = busAccentLEDMat;
-
     addTrafficWheels(0.52, 0.38, 0x475569, [[-1.32, 3.8], [1.32, 3.8], [-1.32, -3.2], [1.32, -3.2], [-1.32, -4.2], [1.32, -4.2]]);
     halfLen = 5.6; halfWidth = 1.35;
+
   } else if(type === 'truck'){
-    const cabMat = new THREE.MeshStandardMaterial({ color:0xd97706, roughness:0.3, metalness:0.5 }); const boxMat = new THREE.MeshStandardMaterial({ color:0xf1f5f9, roughness:0.6 });
+    const cabMat = new THREE.MeshStandardMaterial({ color:0xd97706, roughness:0.3, metalness:0.5 }); 
+    const boxMat = new THREE.MeshStandardMaterial({ color:0xf1f5f9, roughness:0.6 });
     const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 2.4), cabMat); cab.position.set(0, 1.4, 2.8); highGroup.add(cab);
     const box = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.6, 6.2), boxMat); box.position.set(0, 1.8, -1.4); highGroup.add(box);
-    [-0.85, 0.85].forEach(hx => { const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.75, 4.02); highGroup.add(head); const tail = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), V_MAT.glassTaillightRed); tail.position.set(hx, 0.85, -4.52); highGroup.add(tail); });
-    addTrafficWheels(0.52, 0.35, 0x334155, [[-1.25, 2.8], [1.25, 2.8], [-1.25, -2.2], [1.25, -2.2], [-1.25, -3.2], [1.25, -3.2]]); halfLen = 4.2; halfWidth = 1.25;
+    
+    [-0.85, 0.85].forEach(hx => { 
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), V_MAT.glassHeadlight); head.position.set(hx, 0.75, 4.02); highGroup.add(head); 
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.08), brakeLightMat); tail.position.set(hx, 0.85, -4.52); highGroup.add(tail); 
+    });
+    addTrafficWheels(0.52, 0.35, 0x334155, [[-1.25, 2.8], [1.25, 2.8], [-1.25, -2.2], [1.25, -2.2], [-1.25, -3.2], [1.25, -3.2]]); 
+    halfLen = 4.2; halfWidth = 1.25;
   }
 
   highGroup.userData.halfLen = halfLen;
@@ -4821,6 +5046,38 @@ function computeRoutes(){
   FLYOVER.z = routesEW[Math.floor(routesEW.length/2)] || 27.5; return { NS:routesNS, EW:routesEW };
 }
 
+// ✅ Dynamic Village Bridge State Tracker (Uses exact mesh points)
+let onVillageBridge = false;
+
+function updateVillageBridgeState(){
+  if (!villageBridgePoints || villageBridgePoints.length === 0) return;
+
+  // Exact start and end points of the 3D bridge mesh
+  const pStart = villageBridgePoints[0];
+  const pEnd   = villageBridgePoints[villageBridgePoints.length - 1];
+
+  const startDist = Math.hypot(carState.x - pStart.x, carState.z - pStart.z);
+  const endDist   = Math.hypot(carState.x - pEnd.x,   carState.z - pEnd.z);
+
+  if(!onVillageBridge){
+    // Activate bridge mode if car gets near either entrance ramp (25m radius)
+    if(startDist < 25.0 || endDist < 25.0){
+      onVillageBridge = true;
+    }
+  } else {
+    // Check distance to closest point on the bridge curve
+    let minD = Infinity;
+    for(let i = 0; i < villageBridgePoints.length; i += 5){
+      const d = Math.hypot(carState.x - villageBridgePoints[i].x, carState.z - villageBridgePoints[i].z);
+      if(d < minD) minD = d;
+    }
+    // Deactivate bridge mode only if player drives far away from the bridge structure
+    if(minD > 25.0){
+      onVillageBridge = false;
+    }
+  }
+}
+
 let onFlyover = false;
 function updateFlyoverState(){
   const zNear = Math.abs(carState.z - FLYOVER.z) < FLYOVER.deckHalfWidth + 1.0;
@@ -4831,17 +5088,37 @@ function updateFlyoverState(){
 }
 
 function getFlyoverHeight(x, z){
-  if(!onFlyover) return null; const rampUpEnd = FLYOVER.xStart + FLYOVER.rampLen; const rampDownStart = FLYOVER.xEnd - FLYOVER.rampLen;
-  if(x < rampUpEnd){ return ((x - FLYOVER.xStart) / FLYOVER.rampLen) * FLYOVER.height; }
-  if(x > rampDownStart){ return ((FLYOVER.xEnd - x) / FLYOVER.rampLen) * FLYOVER.height; }
+  // ✅ Only return bridge height if the player drove onto the bridge ramp (onFlyover === true)
+  if(!onFlyover) return null; 
+
+  const zNear = Math.abs(z - FLYOVER.z) < FLYOVER.deckHalfWidth + 2.0;
+  const xInBounds = x >= FLYOVER.xStart - 2.0 && x <= FLYOVER.xEnd + 2.0;
+  if(!zNear || !xInBounds) return null;
+
+  const rampUpEnd = FLYOVER.xStart + FLYOVER.rampLen;
+  const rampDownStart = FLYOVER.xEnd - FLYOVER.rampLen;
+
+  if(x < rampUpEnd){ 
+    return Math.max(0, ((x - FLYOVER.xStart) / FLYOVER.rampLen) * FLYOVER.height); 
+  }
+  if(x > rampDownStart){ 
+    return Math.max(0, ((FLYOVER.xEnd - x) / FLYOVER.rampLen) * FLYOVER.height); 
+  }
   return FLYOVER.height;
+}
+// ✅ New helper: Ensures ground traffic/pedestrians always stay on lower roads
+function getGroundSurfaceHeight(x, z) {
+  if (Math.hypot(x - COAST.islandX, z - COAST.islandZ) < COAST.islandR) return COAST.islandHeight;
+  return getTerrainHeight(x, z);
 }
 
 function getSurfaceHeight(x, z){
   if (Math.abs(x - HYDRO_DAM.cx) <= HYDRO_DAM.wallThickness / 2 + 1.0 && Math.abs(z - HYDRO_DAM.cz) <= HYDRO_DAM.wallLength / 2) {
     return HYDRO_DAM.roadY;
   }
-  updateFlyoverState(); const flyH = getFlyoverHeight(x, z); if(flyH !== null) return flyH;
+  updateFlyoverState();
+updateVillageBridgeState();
+ const flyH = getFlyoverHeight(x, z); if(flyH !== null) return flyH;
   const bridgeH = getCurvedBridgeHeight(x, z); if(bridgeH !== null) return bridgeH;
   if(Math.hypot(x-COAST.islandX, z-COAST.islandZ) < COAST.islandR) return COAST.islandHeight; return getTerrainHeight(x, z);
 }
@@ -4967,6 +5244,28 @@ function updateTraffic(dt){
     tc.mesh.visible = (dx*dx + dz*dz < maxDistSq);
     if (!tc.mesh.visible) return;
 
+if (tc.mesh.userData.brakeLightMat) {
+      const isBraking = tc.currentSpeed < tc.cruiseSpeed * 0.85 || targetSpeed === 0;
+      tc.mesh.userData.brakeLightMat.emissiveIntensity = isBraking ? 3.8 : 0.4;
+      tc.mesh.userData.brakeLightMat.color.setHex(isBraking ? 0xff0000 : 0x5d0000);
+    }
+
+// ✅ POLICE LIGHT STROBE ANIMATION (Medium Light Output)
+    if (tc.type === 'police' && tc.mesh.userData.policeLights) {
+      const pl = tc.mesh.userData.policeLights;
+      pl.timer += dt * 14.0; // Strobe flash speed
+
+      const isRedPhase = Math.sin(pl.timer) > 0;
+
+      // Emissive mesh intensity (3.5 when active, 0.2 when off)
+      pl.redMat.emissiveIntensity  = isRedPhase ? 3.5 : 0.2;
+      pl.blueMat.emissiveIntensity = isRedPhase ? 0.2 : 3.5;
+
+      // Medium Dynamic PointLight intensity (2.5 brightness cast onto roads/buildings)
+      pl.redPoint.intensity  = isRedPhase ? 2.5 : 0.0;
+      pl.bluePoint.intensity = isRedPhase ? 0.0 : 2.5;
+    }
+
     if(tc.type === 'bus'){
       if(tc.busStopCooldown > 0) tc.busStopCooldown -= dt;
 
@@ -5061,8 +5360,15 @@ function updateTraffic(dt){
     if(tc.t < -limit){ tc.t = -limit; tc.dir *= -1; }
 
     const laneCoord = tc.isHighway ? tc.laneCenter : tc.laneCenter + tc.dir*WORLD.laneOffset;
-    if(tc.axis === 'z'){ tc.mesh.position.set(laneCoord, getSurfaceHeight(laneCoord, tc.t), tc.t); tc.mesh.rotation.y = tc.dir > 0 ? 0 : Math.PI; }
-    else { tc.mesh.position.set(tc.t, getSurfaceHeight(tc.t, laneCoord), laneCoord); tc.mesh.rotation.y = tc.dir > 0 ? Math.PI/2 : -Math.PI/2; }
+    if(tc.axis === 'z'){
+ const groundY = getGroundSurfaceHeight(laneCoord, tc.t);
+  tc.mesh.position.set(laneCoord, groundY, tc.t); 
+  tc.mesh.rotation.y = tc.dir > 0 ? 0 : Math.PI;
+} else {
+  const groundY = getGroundSurfaceHeight(tc.t, laneCoord);
+  tc.mesh.position.set(tc.t, groundY, laneCoord);
+  tc.mesh.rotation.y = tc.dir > 0 ? Math.PI/2 : -Math.PI/2;
+}
   });
 }
 
@@ -5154,7 +5460,7 @@ function updatePedestrians(dt){
       p.group.userData.rightArmGroup.rotation.x = armAngle;
     }
 
-    const surfaceY = getSurfaceHeight(p.x, p.z);
+    const surfaceY = getGroundSurfaceHeight(p.x, p.z);
     p.group.position.set(p.x, surfaceY, p.z); 
     p.group.rotation.y = p.dir; 
     p.group.position.y += Math.abs(Math.sin(p.walkPhase)) * 0.035;
@@ -5633,6 +5939,7 @@ function triggerCrashFeedback(type){
 
 let currentSurfaceHeight = 0, leftIndicatorOn = false, rightIndicatorOn = false, indicatorClock = 0;
 
+/* FIXED VEHICLE CONTROL ENGINE WITH SLOPE ALIGNMENT, BOUNDED GRAVITY & 3D QUATERNION WHEEL SAMPLING */
 function updateCar(dt){
   if(inHelicopter || inHouse || inTrain) return;
 
@@ -5672,25 +5979,61 @@ function updateCar(dt){
   const wheelBaseHalf = 1.38;
   const trackWidthHalf = 1.18;
 
-  const cosH = Math.cos(carState.heading);
+  // Construct full 3D Vehicle Orientation Quaternion
+  const carEuler = new THREE.Euler(carState.pitch, carState.heading, carState.roll, 'YXZ');
+  const carQuat = new THREE.Quaternion().setFromEuler(carEuler);
+
+  // Transform local 3D wheel offsets into true World-Space coordinates
+  function getWheelWorldCoordinates(localOffsetX, localOffsetZ) {
+    const localPoint = new THREE.Vector3(localOffsetX, -0.2, localOffsetZ);
+    localPoint.applyQuaternion(carQuat);
+    return {
+      x: carState.x + localPoint.x,
+      z: carState.z + localPoint.z
+    };
+  }
+
+  const coordFL = getWheelWorldCoordinates(-trackWidthHalf, wheelBaseHalf);
+  const coordFR = getWheelWorldCoordinates(trackWidthHalf, wheelBaseHalf);
+  const coordRL = getWheelWorldCoordinates(-trackWidthHalf, -wheelBaseHalf);
+  const coordRR = getWheelWorldCoordinates(trackWidthHalf, -wheelBaseHalf);
+
+  const hFL = getSurfaceHeight(coordFL.x, coordFL.z);
+  const hFR = getSurfaceHeight(coordFR.x, coordFR.z);
+  const hRL = getSurfaceHeight(coordRL.x, coordRL.z);
+  const hRR = getSurfaceHeight(coordRR.x, coordRR.z);
+
+  const avgWheelH = (hFL + hFR + hRL + hRR) * 0.25;
+
+  const deltaFactor = 0.4;
   const sinH = Math.sin(carState.heading);
+  const cosH = Math.cos(carState.heading);
 
-  const hFL = getSurfaceHeight(carState.x + sinH * wheelBaseHalf - cosH * trackWidthHalf, carState.z + cosH * wheelBaseHalf + sinH * trackWidthHalf);
-  const hFR = getSurfaceHeight(carState.x + sinH * wheelBaseHalf + cosH * trackWidthHalf, carState.z + cosH * wheelBaseHalf - sinH * trackWidthHalf);
-  const hRL = getSurfaceHeight(carState.x - sinH * wheelBaseHalf - cosH * trackWidthHalf, carState.z - cosH * wheelBaseHalf + sinH * trackWidthHalf);
-  const hRR = getSurfaceHeight(carState.x - sinH * wheelBaseHalf + cosH * trackWidthHalf, carState.z - cosH * wheelBaseHalf - sinH * trackWidthHalf);
+  const hCenter = getSurfaceHeight(carState.x, carState.z);
+  const hFront = getSurfaceHeight(carState.x + sinH * deltaFactor, carState.z + cosH * deltaFactor);
 
-  const avgWheelH = (hFL + hFR + hRL + hRR) / 4.0;
+  // Trigonometrically bounded slope gravity physics
+  const slopeAngle = Math.atan2(hFront - hCenter, deltaFactor);
+  const MAX_SLOPE_ACCEL = 18.0;
+  const slopeGravityAcc = THREE.MathUtils.clamp(-Math.sin(slopeAngle) * 22.0, -MAX_SLOPE_ACCEL, MAX_SLOPE_ACCEL);
 
-  if(crashStopTimer <= 0){
-    const deltaFactor = 0.4;
-    const hCenter = getSurfaceHeight(carState.x, carState.z);
-    const hFront = getSurfaceHeight(carState.x + sinH * deltaFactor, carState.z + cosH * deltaFactor);
-    const slopeGradient = (hFront - hCenter) / deltaFactor;
-    const slopeGravityAcc = -slopeGradient * 25.0;
+  // Static Friction Brake Hold Logic
+  const STATIC_FRICTION_HOLD = 3.8;
 
-    if(throttle !== 0){ carState.speed += (throttle * accel + slopeGravityAcc) * dt; }
-    else { carState.speed += slopeGravityAcc * dt; const sign = Math.sign(carState.speed); carState.speed -= sign * friction * dt; if(Math.sign(carState.speed) !== sign && Math.abs(slopeGravityAcc) < 1.0) carState.speed = 0; }
+  if (crashStopTimer <= 0) {
+    if (throttle !== 0) {
+      carState.speed += (throttle * accel + slopeGravityAcc) * dt;
+    } else {
+      if (Math.abs(carState.speed) < 0.4 && Math.abs(slopeGravityAcc) < STATIC_FRICTION_HOLD) {
+        carState.speed = 0;
+      } else {
+        const sign = Math.sign(carState.speed) || 1;
+        carState.speed += (slopeGravityAcc - sign * friction) * dt;
+        if (Math.sign(carState.speed) !== sign && Math.abs(carState.speed) < 0.2) {
+          carState.speed = 0;
+        }
+      }
+    }
     carState.speed = THREE.MathUtils.clamp(carState.speed, reverseMax, maxSpeed);
   }
 
@@ -5727,16 +6070,17 @@ function updateCar(dt){
 
   currentSurfaceHeight += (avgWheelH - currentSurfaceHeight) * Math.min(1, dt * 16);
 
-  const frontH = (hFL + hFR) / 2.0;
-  const rearH = (hRL + hRR) / 2.0;
-  const leftH = (hFL + hRL) / 2.0;
-  const rightH = (hFR + hRR) / 2.0;
+  const frontH = (hFL + hFR) * 0.5;
+  const rearH = (hRL + hRR) * 0.5;
+  const leftH = (hFL + hRL) * 0.5;
+  const rightH = (hFR + hRR) * 0.5;
 
-  const targetPitch = Math.atan2(frontH - rearH, wheelBaseHalf * 2.0);
+  const targetPitch = Math.atan2(rearH - frontH, wheelBaseHalf * 2.0);
   const targetRoll = Math.atan2(rightH - leftH, trackWidthHalf * 2.0);
 
-  carState.pitch += (targetPitch - carState.pitch) * Math.min(1.0, dt * 12.0);
-  carState.roll += (targetRoll - carState.roll) * Math.min(1.0, dt * 12.0);
+  const suspensionDampingSpeed = 12.0;
+  carState.pitch += (targetPitch - carState.pitch) * Math.min(1.0, dt * suspensionDampingSpeed);
+  carState.roll += (targetRoll - carState.roll) * Math.min(1.0, dt * suspensionDampingSpeed);
 
   car.position.set(carState.x, currentSurfaceHeight, carState.z);
   car.rotation.set(carState.pitch, carState.heading, carState.roll, 'YXZ');
@@ -5785,7 +6129,7 @@ function updateCar(dt){
 function updateVehicleInteractionPrompt(){
   if(!domSwitchBtn || !domSwitchIcon || !domSwitchText || !domHouseSwitchBtn || !domTrainSwitchBtn || !domRaceSwitchBtn || !domDamSwitchBtn) return;
 
-  if(inTrain){
+    if(inTrain){
     domSwitchBtn.classList.remove('show');
     domHouseSwitchBtn.classList.remove('show');
     domRaceSwitchBtn.classList.remove('show');
